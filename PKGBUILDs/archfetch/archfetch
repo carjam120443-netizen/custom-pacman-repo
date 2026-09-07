@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+
+printf '        /\\_/\\\n'
+printf '       ( o.o )   archfetch\n'
+printf '        > ^ <\n\n'
+printf 'OS:       %s\n' "$(uname -s)"
+printf 'Kernel:   %s\n' "$(uname -r)"
+printf 'Machine:  %s\n' "$(uname -m)"
+printf 'Shell:    %s\n' "${SHELL##*/}"
+printf 'Terminal: %s\n' "${TERM:-unknown}"
+printf 'MSYSTEM:  %s\n' "${MSYSTEM:-unknown}"
+printf 'Uptime:   %s\n' "$(uptime -p 2>/dev/null || echo unknown)"
+printf 'Packages: %s\n' "$(pacman -Qq 2>/dev/null | wc -l)"
+printf 'Memory:   %s\n' "$(free -h 2>/dev/null | awk '/^Mem:/ {print $3 " / " $2}')"
+printf 'Host:     %s\n' "$(hostname)"
