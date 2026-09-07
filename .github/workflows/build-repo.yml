@@ -1,0 +1,103 @@
+name: Build MSYS2 Pacman Repository
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'PKGBUILDs/**'
+      - 'scripts/**'
+      - '.github/workflows/build-repo.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Set up MSYS2 UCRT64
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            base-devel
+            git
+
+      - name: Build packages
+        run: |
+          set -e
+          mkdir -p packages/ucrt64
+          rm -f packages/ucrt64/*.pkg.tar.zst
+
+          found=0
+          for pkgbuild in PKGBUILDs/*/PKGBUILD; do
+            [ -f "$pkgbuild" ] || continue
+            found=1
+            pkgdir="$(dirname "$pkgbuild")"
+            echo "==> Building $pkgdir"
+            cd "$pkgdir"
+            rm -rf src pkg
+            makepkg --noconfirm --cleanbuild --clean
+            cp ./*.pkg.tar.zst "$GITHUB_WORKSPACE/packages/ucrt64/"
+            cd "$GITHUB_WORKSPACE"
+          done
+
+          if [ "$found" -eq 0 ]; then
+            echo "No PKGBUILDs found."
+            exit 1
+          fi
+
+      - name: Create Pacman repository database
+        run: |
+          set -e
+          cd packages/ucrt64
+          rm -f custom.db custom.db.tar.gz custom.files custom.files.tar.gz
+          repo-add custom.db.tar.gz ./*.pkg.tar.zst
+
+      - name: Prepare GitHub Pages site
+        run: |
+          set -e
+          rm -rf _site
+          mkdir -p _site/ucrt64
+          cp packages/ucrt64/* _site/ucrt64/
+          cat > _site/index.html <<'EOF'
+          <!doctype html>
+          <html>
+          <head><meta charset="utf-8"><title>Custom MSYS2 Pacman Repository</title></head>
+          <body>
+          <h1>Custom MSYS2 Pacman Repository</h1>
+          <p>Packages are built for MSYS2. Normal Arch Linux pacman compatibility is not guaranteed.</p>
+          <p>Repository: <code>ucrt64</code></p>
+          </body>
+          </html>
+          EOF
+
+      - name: Upload repository for Pages
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
