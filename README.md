@@ -1,4 +1,4 @@
-# Custom Pacman Repo
+# Custom Pacman Repo 🚀
 
 A custom **MSYS2 Pacman package repository** for packages built for MSYS2 environments.
 
@@ -27,23 +27,70 @@ Packages should be placed in the appropriate environment-specific repository. A 
 ├── README.md
 ├── PKGBUILDs/
 │   └── hello-custom/
+│       ├── PKGBUILD
+│       └── hello-custom.sh
 ├── packages/
 │   └── ucrt64/
 ├── repo/
 │   └── ucrt64/
-└── scripts/
+├── scripts/
+│   └── build-repo.sh
+└── .github/
+    └── workflows/
+        └── build-repo.yml
 ```
 
-## Using the repository
+## 🤖 Automatic builds
 
-When repository hosting and metadata are configured, an MSYS2 user can add the repository to the appropriate `/etc/pacman.conf`.
+GitHub Actions automatically builds the packages whenever relevant files are pushed to `main`, or when the workflow is manually dispatched.
 
-Example:
+The workflow:
+
+1. Starts a Windows runner.
+2. Sets up an **MSYS2 UCRT64** environment.
+3. Installs the MSYS2 build tools.
+4. Finds every `PKGBUILD` under `PKGBUILDs/`.
+5. Builds each package with `makepkg`.
+6. Creates the Pacman repository database with `repo-add`.
+7. Packages the resulting repository for GitHub Pages.
+8. Deploys the repository automatically.
+
+So adding another package can be as simple as adding another directory under `PKGBUILDs/`.
+
+### Workflow file
+
+```text
+.github/workflows/build-repo.yml
+```
+
+### Local build script
+
+You can also build the repository locally from an MSYS2 UCRT64 terminal:
+
+```bash
+bash scripts/build-repo.sh
+```
+
+The generated repository files are placed under:
+
+```text
+packages/ucrt64/
+```
+
+## 🌐 Using the hosted repository
+
+After GitHub Pages is enabled for the repository's GitHub Actions deployment, the UCRT64 repository is published at:
+
+```text
+https://carjam120443-netizen.github.io/custom-pacman-repo/ucrt64
+```
+
+Add this to the **MSYS2** `/etc/pacman.conf`:
 
 ```ini
 [custom]
 SigLevel = Optional TrustAll
-Server = https://carjam120443-netizen.github.io/custom-pacman-repo/$arch
+Server = https://carjam120443-netizen.github.io/custom-pacman-repo/ucrt64
 ```
 
 Then synchronize and inspect it:
@@ -53,20 +100,26 @@ pacman -Sy
 pacman -Sl custom
 ```
 
-> **Important:** This configuration is intended for **MSYS2**, not a normal Arch Linux installation. Verify that the repository path matches your MSYS2 environment before installing packages.
+And install a package with:
 
-## Building packages
+```bash
+pacman -S custom/hello-custom
+```
+
+> ⚠️ **Important:** This configuration is intended for **MSYS2**, not a normal Arch Linux installation. Do not assume the repository works with Arch Linux `pacman`.
+
+## 📦 Building packages
 
 Packages are built with MSYS2's `makepkg` and distributed as `.pkg.tar.zst` files.
 
-Typical workflow:
+Typical manual workflow:
 
 ```bash
 makepkg -f
 repo-add custom.db.tar.gz *.pkg.tar.zst
 ```
 
-The package files and repository database can then be published through the repository's hosting mechanism.
+The automated workflow handles these steps for packages in this repository.
 
 ## Current test package
 
@@ -86,11 +139,13 @@ Pacman repository
 pacman -S custom/hello-custom
 ```
 
-## Compatibility warning
+## ⚠️ Compatibility warning
 
 This project is **not an Arch Linux repository**.
 
 MSYS2 has its own runtime environments, toolchains, package naming conventions, repositories, and dependency ecosystem. Do not mix standard Arch repositories, AUR packages, or Chaotic-AUR packages into MSYS2 unless compatibility has been specifically verified.
+
+A package built for `UCRT64` should also not automatically be assumed compatible with `MSYS`, `CLANG64`, `CLANGARM64`, or other MSYS2 environments.
 
 ## License
 
