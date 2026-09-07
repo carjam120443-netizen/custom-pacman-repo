@@ -1,0 +1,82 @@
+pkgname=podman
+pkgver=6.0.2
+pkgrel=1
+pkgdesc="Podman container engine client for Windows with WSL-backed Podman machines"
+arch=('x86_64')
+license=('Apache-2.0')
+depends=('bash')
+optdepends=('wsl: required to run Podman machines on Windows')
+source=("https://github.com/containers/podman/releases/download/v${pkgver}/podman-installer-windows-amd64.msi")
+sha256sums=('SKIP')
+
+package() {
+    install -Dm644 "$srcdir/podman-installer-windows-amd64.msi" "$pkgdir/usr/share/podman/podman-installer-windows-amd64.msi"
+
+    install -d "$pkgdir/usr/bin"
+    cat > "$pkgdir/usr/bin/podman-install" <<'EOF'
+#!/usr/bin/env bash
+set -e
+
+MSI="/usr/share/podman/podman-installer-windows-amd64.msi"
+
+if [[ ! -f "$MSI" ]]; then
+    echo "podman-install: Podman MSI is missing: $MSI" >&2
+    exit 1
+fi
+
+if ! command -v powershell.exe >/dev/null 2>&1; then
+    echo "podman-install: powershell.exe was not found." >&2
+    exit 1
+fi
+
+if ! command -v msiexec.exe >/dev/null 2>&1; then
+    echo "podman-install: msiexec.exe was not found." >&2
+    exit 1
+fi
+
+echo "Installing Podman for the current Windows user..."
+echo "This uses the official Podman Windows MSI and does not require machine-wide installation."
+
+powershell.exe -NoProfile -ExecutionPolicy Bypass -Command \
+  "Start-Process msiexec.exe -ArgumentList '/i', (Get-Item -LiteralPath '$MSI').FullName, '/qn', 'MSIINSTALLPERUSER=1', 'MACHINE_PROVIDER=wsl' -Wait -PassThru | Select-Object -ExpandProperty ExitCode"
+
+if [[ -x /c/Users/$USERNAME/AppData/Local/Programs/Podman/podman.exe ]]; then
+    echo "Podman installed successfully."
+    echo "Open a new terminal, then run: podman machine init"
+else
+    echo "Podman installer finished. Open a new terminal and check: podman --version"
+fi
+EOF
+    chmod 755 "$pkgdir/usr/bin/podman-install"
+
+    cat > "$pkgdir/usr/bin/podman" <<'EOF'
+#!/usr/bin/env bash
+set -e
+
+find_podman() {
+    local candidates=(
+        "$HOME/AppData/Local/Programs/Podman/podman.exe"
+        "/c/Users/$USERNAME/AppData/Local/Programs/Podman/podman.exe"
+        "/c/Program Files/Podman/podman.exe"
+    )
+    local p
+    for p in "${candidates[@]}"; do
+        if [[ -x "$p" ]]; then
+            printf '%s\n' "$p"
+            return 0
+        fi
+    done
+    return 1
+}
+
+if PODMAN_EXE="$(find_podman)"; then
+    exec "$PODMAN_EXE" "$@"
+fi
+
+echo "podman: Windows Podman is not installed yet." >&2
+echo "Run: podman-install" >&2
+echo "Then restart your terminal and run: podman machine init" >&2
+exit 127
+EOF
+    chmod 755 "$pkgdir/usr/bin/podman"
+}
