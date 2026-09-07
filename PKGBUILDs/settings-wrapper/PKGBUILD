@@ -1,0 +1,13 @@
+pkgname=settings-wrapper
+pkgver=1.0
+pkgrel=1
+pkgdesc="Simple settings and configuration wrapper for MSYS2"
+arch=('any')
+license=('MIT')
+depends=('bash')
+source=()
+sha256sums=()
+
+package() {
+    install -Dm755 "$startdir/settings-wrapper" "$pkgdir/usr/bin/settings-wrapper"
+}
