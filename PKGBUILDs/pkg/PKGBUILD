@@ -1,6 +1,6 @@
 pkgname=pkg
 pkgver=1.0
-pkgrel=1
+pkgrel=2
 pkgdesc="Lightweight package manager frontend for Pacman and custom repositories"
 arch=('any')
 license=('MIT')
@@ -9,6 +9,6 @@ source=()
 sha256sums=()
 
 package() {
-    install -Dm755 "$startdir/pkg" "$pkgdir/usr/bin/pkg"
+    install -Dm755 "$startdir/pkg-manager" "$pkgdir/usr/bin/pkg"
     install -Dm644 "$startdir/pkg.conf" "$pkgdir/etc/pkg.conf"
 }
