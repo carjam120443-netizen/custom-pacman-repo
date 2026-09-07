@@ -1,0 +1,13 @@
+pkgname=hello-custom
+pkgver=1.0
+pkgrel=1
+pkgdesc="A test package for the custom MSYS2 Pacman repository"
+arch=('any')
+license=('MIT')
+source=('hello-custom.sh')
+sha256sums=('SKIP')
+
+package() {
+    install -Dm755 "$srcdir/hello-custom.sh" \
+        "$pkgdir/usr/bin/hello-custom"
+}
