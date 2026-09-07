@@ -1,0 +1,158 @@
+#!/usr/bin/env bash
+
+VERSION='1.0'
+CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/ventoy-terminal"
+STATE_FILE="$CONFIG_DIR/config"
+
+mkdir -p "$CONFIG_DIR"
+
+printf '\033[1;36m╔══════════════════════════════════════════╗\033[0m\n'
+printf '\033[1;36m║        VENTOY TERMINAL EDITION          ║\033[0m\n'
+printf '\033[1;36m╚══════════════════════════════════════════╝\033[0m\n'
+printf 'A terminal-based Ventoy-style multiboot manager.\n'
+printf 'This utility manages a simulated USB library; it does not write to disks.\n\n'
+
+usage() {
+    cat <<'EOF'
+Usage: ventoy-terminal [command]
+
+Commands:
+  start              Open the interactive menu
+  list               List ISO files in the library
+  add FILE           Add an ISO path to the simulated library
+  remove NAME        Remove an ISO from the library
+  scan DIR            Scan a directory for ISO files
+  config             Show configuration/state location
+  about              Show information
+  --version, -v      Show version
+  --help, -h         Show this help
+
+Interactive menu:
+  1) ISO Library
+  2) Add ISO
+  3) Scan directory
+  4) Remove ISO
+  5) Boot simulation
+  6) System information
+  7) Exit
+
+Safety: this version is a simulation. It never formats, partitions, mounts,
+flashes, or writes to USB drives.
+EOF
+}
+
+list_isos() {
+    printf '\n\033[1;33mISO Library\033[0m\n'
+    if [[ ! -s "$STATE_FILE" ]]; then
+        printf '  (empty)\n'
+        return
+    fi
+    local n=1
+    while IFS= read -r iso; do
+        [[ -n "$iso" ]] || continue
+        printf '  %d) %s\n' "$n" "$iso"
+        ((n++))
+    done < "$STATE_FILE"
+}
+
+add_iso() {
+    local iso="$1"
+    [[ -n "$iso" ]] || { printf 'Usage: ventoy-terminal add FILE\n' >&2; return 1; }
+    if grep -Fxq -- "$iso" "$STATE_FILE" 2>/dev/null; then
+        printf 'Already in library: %s\n' "$iso"
+        return 0
+    fi
+    printf '%s\n' "$iso" >> "$STATE_FILE"
+    printf '\033[1;32m✓ Added:\033[0m %s\n' "$iso"
+}
+
+remove_iso() {
+    local target="$1"
+    [[ -n "$target" ]] || { printf 'Usage: ventoy-terminal remove NAME\n' >&2; return 1; }
+    [[ -f "$STATE_FILE" ]] || { printf 'ISO not found: %s\n' "$target"; return 1; }
+    local tmp
+    tmp="$(mktemp)"
+    grep -Fvx -- "$target" "$STATE_FILE" > "$tmp" || true
+    if cmp -s "$tmp" "$STATE_FILE"; then
+        rm -f "$tmp"
+        printf 'ISO not found: %s\n' "$target"
+        return 1
+    fi
+    mv "$tmp" "$STATE_FILE"
+    printf '\033[1;32m✓ Removed:\033[0m %s\n' "$target"
+}
+
+scan_dir() {
+    local dir="$1"
+    [[ -d "$dir" ]] || { printf 'Directory not found: %s\n' "$dir" >&2; return 1; }
+    local found=0
+    while IFS= read -r -d '' iso; do
+        add_iso "$iso"
+        found=1
+    done < <(find "$dir" -maxdepth 1 -type f -iname '*.iso' -print0)
+    ((found)) || printf 'No ISO files found in %s\n' "$dir"
+}
+
+boot_simulation() {
+    printf '\n\033[1;35mBoot Simulation\033[0m\n'
+    list_isos
+    [[ -s "$STATE_FILE" ]] || return
+    printf 'Select ISO number: '
+    IFS= read -r choice
+    local selected
+    selected="$(sed -n "${choice}p" "$STATE_FILE")"
+    if [[ -n "$selected" ]]; then
+        printf '\n\033[1;32m✓ Selected:\033[0m %s\n' "$selected"
+        printf 'Simulating Ventoy boot menu...\n'
+        sleep 1
+        printf '[Ventoy Terminal] Loading %s ...\n' "$selected"
+        sleep 1
+        printf '[Ventoy Terminal] Boot simulation complete. No disk was modified.\n'
+    else
+        printf 'Invalid selection.\n'
+    fi
+}
+
+menu() {
+    while true; do
+        printf '\n\033[1;36m┌──────────────────────────────────────────┐\033[0m\n'
+        printf '\033[1;36m│ Ventoy Terminal — Main Menu              │\033[0m\n'
+        printf '\033[1;36m└──────────────────────────────────────────┘\033[0m\n'
+        printf '  1) ISO Library\n'
+        printf '  2) Add ISO\n'
+        printf '  3) Scan directory\n'
+        printf '  4) Remove ISO\n'
+        printf '  5) Boot simulation\n'
+        printf '  6) System information\n'
+        printf '  7) Exit\n\n'
+        printf 'Select: '
+        IFS= read -r choice || break
+        case "$choice" in
+            1) list_isos ;;
+            2) printf 'ISO path: '; IFS= read -r iso; add_iso "$iso" ;;
+            3) printf 'Directory: '; IFS= read -r dir; scan_dir "$dir" ;;
+            4) printf 'ISO to remove: '; IFS= read -r iso; remove_iso "$iso" ;;
+            5) boot_simulation ;;
+            6)
+                printf '\nMSYSTEM: %s\n' "${MSYSTEM:-unknown}"
+                printf 'Shell: %s\n' "${SHELL:-bash}"
+                printf 'Library: %s\n' "$STATE_FILE"
+                ;;
+            7|q|Q|exit|quit) break ;;
+            *) printf 'Invalid selection.\n' ;;
+        esac
+    done
+}
+
+case "${1:-start}" in
+    start) menu ;;
+    list) list_isos ;;
+    add) shift; add_iso "$*" ;;
+    remove) shift; remove_iso "$*" ;;
+    scan) shift; scan_dir "$1" ;;
+    config) printf 'State file: %s\n' "$STATE_FILE" ;;
+    about) printf 'ventoy-terminal v%s\nTerminal-based Ventoy-style ISO library and boot simulator.\nNo disk or USB writing is performed.\n' "$VERSION" ;;
+    --version|-v|version) printf 'ventoy-terminal version %s\n' "$VERSION" ;;
+    --help|-h|help) usage ;;
+    *) printf 'Unknown command: %s\n\n' "$1" >&2; usage; exit 1 ;;
+esac
