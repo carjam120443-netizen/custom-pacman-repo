@@ -1,0 +1,12 @@
+pkgname=su
+pkgver=1.0
+pkgrel=1
+pkgdesc="Simple MSYS2 administrator utility wrapper"
+arch=('any')
+license=('MIT')
+source=()
+sha256sums=()
+
+package() {
+    install -Dm755 "$startdir/su" "$pkgdir/usr/bin/su"
+}
