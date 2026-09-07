@@ -1,17 +1,48 @@
 #!/usr/bin/env bash
 
-# su - Simple MSYS2 administrator utility
-# Opens a new elevated MSYS2 UCRT64 shell using Windows UAC.
+# su - MSYS2 administrator utility
+#
+# With no arguments, opens an elevated MSYS2 UCRT64 shell.
+# With arguments, runs the supplied command elevated through Windows UAC.
+
+set -e
+
+# Resolve the actual bash.exe used by this MSYS2 installation instead of
+# assuming it lives at C:\\msys64.
+BASH_WIN="$(cygpath -w /usr/bin/bash.exe 2>/dev/null || true)"
+
+if [ -z "$BASH_WIN" ] || [ ! -f "$BASH_WIN" ]; then
+    echo "su: could not locate the current MSYS2 bash.exe" >&2
+    exit 1
+fi
+
+# Build the command that the elevated MSYS2 shell will execute.
+if [ "$#" -eq 0 ]; then
+    CMD='exec bash --login -i'
+else
+    printf -v CMD '%q ' "$@"
+    CMD="exec $CMD"
+fi
+
+# Pass the command through PowerShell using Base64 so spaces and shell
+# metacharacters in arguments are preserved safely.
+PS_SCRIPT=$(cat <<EOF
+\$env:MSYSTEM = 'UCRT64'
+\$bash = '$BASH_WIN'
+\$command = @'
+$CMD
+'@
+Start-Process -Verb RunAs -FilePath \$bash -ArgumentList @('-lc', \$command.Trim())
+EOF
+)
+
+ENCODED=$(printf '%s' "$PS_SCRIPT" | iconv -f UTF-8 -t UTF-16LE | base64 -w 0)
 
 if command -v powershell.exe >/dev/null 2>&1; then
-    powershell.exe -NoProfile -Command 'Start-Process -Verb RunAs -FilePath "C:\\msys64\\usr\\bin\\bash.exe" -ArgumentList "-li"' >/dev/null
-    exit $?
+    powershell.exe -NoProfile -EncodedCommand "$ENCODED"
+elif command -v powershell >/dev/null 2>&1; then
+    powershell -NoProfile -EncodedCommand "$ENCODED"
+else
+    echo "su: PowerShell is required to request Windows administrator privileges." >&2
+    exit 1
 fi
-
-if command -v powershell >/dev/null 2>&1; then
-    powershell -NoProfile -Command 'Start-Process -Verb RunAs -FilePath "C:\\msys64\\usr\\bin\\bash.exe" -ArgumentList "-li"' >/dev/null
-    exit $?
-fi
-
-echo "su: PowerShell is required to request Windows administrator privileges." >&2
-exit 1
