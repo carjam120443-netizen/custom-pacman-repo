@@ -1,0 +1,13 @@
+pkgname=dependencies-installer
+pkgver=1.0
+pkgrel=1
+pkgdesc="Pacman dependency management frontend for MSYS2"
+arch=('any')
+license=('MIT')
+depends=('bash' 'pacman')
+source=()
+sha256sums=()
+
+package() {
+    install -Dm755 "$startdir/dependencies-installer" "$pkgdir/usr/bin/dependencies-installer"
+}
