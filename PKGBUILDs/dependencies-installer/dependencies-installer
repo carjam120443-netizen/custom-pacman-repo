@@ -1,0 +1,112 @@
+#!/usr/bin/env bash
+
+VERSION='1.0'
+
+usage() {
+    cat <<'EOF'
+Usage: dependencies-installer <command> [packages...]
+
+Dependency-focused Pacman frontend.
+
+Commands:
+  install, i PACKAGE...   Install packages as dependencies (--asdeps)
+  remove, r PACKAGE...    Remove dependency packages
+  check, c PACKAGE...     Check whether packages are installed
+  missing PACKAGE...      Show packages that are not installed
+  list                    List installed packages marked as dependencies
+  info PACKAGE...         Show package information
+  update                  Refresh Pacman package databases
+  upgrade                 Upgrade installed packages
+  clean                   Clean Pacman's package cache
+  help                    Show this help
+  version                 Show version
+
+Examples:
+  dependencies-installer install bash coreutils
+  dependencies-installer check bash pacman
+  dependencies-installer missing git make
+  dependencies-installer list
+EOF
+}
+
+need_packages() {
+    if (( $# == 0 )); then
+        echo "dependencies-installer: no packages specified" >&2
+        return 1
+    fi
+}
+
+install_deps() {
+    need_packages "$@" || return
+    echo "Installing as dependencies: $*"
+    pacman -S --asdeps --needed "$@"
+}
+
+remove_deps() {
+    need_packages "$@" || return
+    pacman -R "$@"
+}
+
+check_deps() {
+    need_packages "$@" || return
+    local pkg
+    local status=0
+    for pkg in "$@"; do
+        if pacman -Q "$pkg" >/dev/null 2>&1; then
+            printf 'installed: %s\n' "$pkg"
+        else
+            printf 'missing:   %s\n' "$pkg"
+            status=1
+        fi
+    done
+    return "$status"
+}
+
+missing_deps() {
+    need_packages "$@" || return
+    local pkg
+    local missing=0
+    for pkg in "$@"; do
+        if ! pacman -Q "$pkg" >/dev/null 2>&1; then
+            printf '%s\n' "$pkg"
+            missing=1
+        fi
+    done
+    return "$missing"
+}
+
+list_deps() {
+    echo 'Installed packages marked as dependencies:'
+    pacman -Qdt 2>/dev/null || true
+}
+
+case "${1:-help}" in
+    install|i)
+        shift; install_deps "$@" ;;
+    remove|r|uninstall)
+        shift; remove_deps "$@" ;;
+    check|c)
+        shift; check_deps "$@" ;;
+    missing)
+        shift; missing_deps "$@" ;;
+    list|ls)
+        list_deps ;;
+    info)
+        shift; need_packages "$@" && pacman -Si "$@" ;;
+    update|sync|refresh)
+        pacman -Sy ;;
+    upgrade|up)
+        pacman -Su ;;
+    clean)
+        pacman -Sc ;;
+    version|--version|-v)
+        printf 'dependencies-installer version %s\n' "$VERSION" ;;
+    help|--help|-h)
+        usage ;;
+    *)
+        echo "dependencies-installer: unknown command: $1" >&2
+        echo
+        usage
+        exit 1
+        ;;
+esac
