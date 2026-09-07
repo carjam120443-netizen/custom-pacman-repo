@@ -1,9 +1,10 @@
 pkgname=su
 pkgver=1.0
-pkgrel=3
+pkgrel=4
 pkgdesc="Simple MSYS2 administrator utility with elevated command support"
 arch=('any')
 license=('MIT')
+depends=('libiconv')
 source=()
 sha256sums=()
 
