@@ -1,0 +1,13 @@
+pkgname=betterdir
+pkgver=1.0
+pkgrel=1
+pkgdesc="A friendlier mkdir replacement for MSYS2"
+arch=('any')
+license=('MIT')
+depends=('bash')
+source=()
+sha256sums=()
+
+package() {
+    install -Dm755 "$startdir/betterdir" "$pkgdir/usr/bin/betterdir"
+}
