@@ -26,9 +26,12 @@ Packages should be placed in the appropriate environment-specific repository. A 
 .
 ├── README.md
 ├── PKGBUILDs/
-│   └── hello-custom/
+│   ├── hello-custom/
+│   │   ├── PKGBUILD
+│   │   └── hello-custom.sh
+│   └── archfetch/
 │       ├── PKGBUILD
-│       └── hello-custom.sh
+│       └── archfetch
 ├── packages/
 │   └── ucrt64/
 ├── repo/
@@ -106,6 +109,37 @@ And install a package with:
 pacman -S custom/hello-custom
 ```
 
+## 🐱 Archfetch
+
+`archfetch` is a lightweight Neofetch-style system information utility made specifically for this repository's MSYS2 environment.
+
+It displays information such as:
+
+- OS/kernel
+- Machine architecture
+- Shell
+- Terminal
+- MSYS2 environment
+- Uptime
+- Installed package count
+- Memory usage
+- Hostname
+
+Install it after the repository has been published:
+
+```bash
+pacman -Sy
+pacman -S custom/archfetch
+```
+
+Then run:
+
+```bash
+archfetch
+```
+
+> **Note:** Despite the name, `archfetch` is not an Arch Linux package. It is an MSYS2 utility with a Neofetch-like purpose.
+
 > ⚠️ **Important:** This configuration is intended for **MSYS2**, not a normal Arch Linux installation. Do not assume the repository works with Arch Linux `pacman`.
 
 ## 📦 Building packages
@@ -121,23 +155,26 @@ repo-add custom.db.tar.gz *.pkg.tar.zst
 
 The automated workflow handles these steps for packages in this repository.
 
-## Current test package
+## Current packages
 
-The initial test package is `hello-custom`. It verifies the complete custom-repository workflow:
+| Package | Description |
+|---|---|
+| `hello-custom` | Initial test package for verifying the repository workflow |
+| `archfetch` | Lightweight Neofetch-style system information utility for MSYS2 |
+
+## Adding another package
+
+Create a new directory under `PKGBUILDs/` containing a `PKGBUILD` and its source files. The GitHub Actions workflow automatically discovers every `PKGBUILD` in that directory tree.
+
+For example:
 
 ```text
-PKGBUILD
-   ↓
-makepkg
-   ↓
-.pkg.tar.zst
-   ↓
-repo-add
-   ↓
-Pacman repository
-   ↓
-pacman -S custom/hello-custom
+PKGBUILDs/myapp/
+├── PKGBUILD
+└── source-files...
 ```
+
+Then push the changes to `main`. The workflow builds the package, regenerates the repository database, and publishes the updated UCRT64 repository.
 
 ## ⚠️ Compatibility warning
 
