@@ -1,0 +1,95 @@
+#!/usr/bin/env bash
+
+# sudo-destroyers - harmless terminal game
+VERSION='1.0'
+
+printf '\033[1;36m=== SUDO DESTROYERS ===\033[0m\n'
+printf 'A harmless terminal battle against simulated sudo destroyers!\n'
+printf 'Nothing outside this game is changed.\n\n'
+
+if [[ "${1:-}" == "--version" || "${1:-}" == "-v" ]]; then
+    printf 'sudo-destroyers version %s\n' "$VERSION"
+    exit 0
+fi
+
+if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+    printf '%s\n' \
+      'Usage: sudo-destroyers' \
+      '' \
+      'Commands:' \
+      '  --help, -h       Show help' \
+      '  --version, -v    Show version' \
+      '' \
+      'The game is entirely simulated and does not execute destructive commands.'
+    exit 0
+fi
+
+score=0
+health=100
+round=1
+
+typeset -a enemies=(
+  'Permission Phantom'
+  'Root Raider'
+  'Sudo Destroyer'
+  'Kernel Knight'
+  'Terminal Titan'
+)
+
+while (( health > 0 )); do
+    enemy="${enemies[$(( (round - 1) % ${#enemies[@]} ))]}"
+    enemy_hp=$((30 + round * 5))
+
+    printf '\n\033[1;33mRound %d\033[0m — %s appears! HP: %d\n' "$round" "$enemy" "$enemy_hp"
+    printf 'Your HP: %d | Score: %d\n' "$health" "$score"
+
+    while (( enemy_hp > 0 && health > 0 )); do
+        printf '\nChoose: [1] Attack  [2] Defend  [3] Inspect  [q] Quit\n> '
+        IFS= read -r action || exit 0
+
+        case "$action" in
+            1)
+                damage=$((10 + RANDOM % 16))
+                enemy_hp=$((enemy_hp - damage))
+                (( enemy_hp < 0 )) && enemy_hp=0
+                printf '⚔️  You deal %d simulated damage! Enemy HP: %d\n' "$damage" "$enemy_hp"
+                if (( enemy_hp > 0 )); then
+                    hit=$((5 + RANDOM % 11))
+                    health=$((health - hit))
+                    printf '💥 The destroyer hits back for %d simulated damage! Your HP: %d\n' "$hit" "$health"
+                fi
+                ;;
+            2)
+                hit=$((2 + RANDOM % 6))
+                health=$((health - hit))
+                printf '🛡️  You defend! Only %d simulated damage gets through. Your HP: %d\n' "$hit" "$health"
+                ;;
+            3)
+                printf '🔎 %s is a fictional enemy. This game never runs system commands.\n' "$enemy"
+                ;;
+            q|Q|quit|exit)
+                printf '\nGame ended. Final score: %d\n' "$score"
+                exit 0
+                ;;
+            *)
+                printf 'Invalid choice. Pick 1, 2, 3, or q.\n'
+                ;;
+        esac
+    done
+
+    if (( health <= 0 )); then
+        break
+    fi
+
+    reward=$((50 + round * 10))
+    score=$((score + reward))
+    printf '\n🏆 %s defeated! +%d points.\n' "$enemy" "$reward"
+    ((round++))
+    health=$((health + 15))
+    (( health > 100 )) && health=100
+done
+
+printf '\n💀 GAME OVER\n'
+printf 'Final score: %d\n' "$score"
+printf 'Rounds survived: %d\n' "$((round - 1))"
+printf 'Thanks for playing sudo-destroyers!\n'
