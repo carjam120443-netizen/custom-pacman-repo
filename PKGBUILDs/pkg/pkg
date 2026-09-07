@@ -1,0 +1,108 @@
+#!/usr/bin/env bash
+
+# pkg - lightweight package manager frontend for Pacman
+
+VERSION='1.0'
+
+PKG_COLOR=1
+if [[ -f /etc/pkg.conf ]]; then
+    source /etc/pkg.conf
+fi
+if [[ -f "$HOME/.pkg.conf" ]]; then
+    source "$HOME/.pkg.conf"
+fi
+
+if [[ "${PKG_COLOR:-1}" == 1 ]]; then
+    BOLD=$'\033[1m'
+    CYAN=$'\033[1;36m'
+    GREEN=$'\033[1;32m'
+    YELLOW=$'\033[1;33m'
+    RED=$'\033[1;31m'
+    RESET=$'\033[0m'
+else
+    BOLD='' CYAN='' GREEN='' YELLOW='' RED='' RESET=''
+fi
+
+usage() {
+    printf '%s\n' \
+        "${BOLD}pkg${RESET} - package manager frontend for Pacman" \
+        "" \
+        "Usage: pkg <command> [package...]" \
+        "" \
+        "Commands:" \
+        "  install, i <pkg>    Install packages" \
+        "  remove, r <pkg>     Remove packages" \
+        "  update              Refresh package databases" \
+        "  upgrade             Upgrade installed packages" \
+        "  search, s <term>    Search available packages" \
+        "  info <pkg>          Show package information" \
+        "  list                List installed packages" \
+        "  repo                Show configured Pacman repositories" \
+        "  clean               Clean Pacman package cache" \
+        "  about               Show pkg version" \
+        "  help                Show this help" \
+        "" \
+        "Examples:" \
+        "  pkg install custom/cshell" \
+        "  pkg install archfetch" \
+        "  pkg update && pkg upgrade"
+}
+
+run_pacman() {
+    printf '%s==> pacman %s%s\n' "$CYAN" "$*" "$RESET"
+    pacman "$@"
+}
+
+case "${1:-help}" in
+    install|i)
+        shift
+        [[ $# -gt 0 ]] || { printf '%spkg: no package specified%s\n' "$RED" "$RESET" >&2; exit 2; }
+        run_pacman -S "$@"
+        ;;
+    remove|r|uninstall)
+        shift
+        [[ $# -gt 0 ]] || { printf '%spkg: no package specified%s\n' "$RED" "$RESET" >&2; exit 2; }
+        run_pacman -R "$@"
+        ;;
+    update)
+        run_pacman -Sy
+        ;;
+    upgrade)
+        run_pacman -Su
+        ;;
+    search|s)
+        shift
+        [[ $# -gt 0 ]] || { printf '%spkg: no search term specified%s\n' "$RED" "$RESET" >&2; exit 2; }
+        run_pacman -Ss "$@"
+        ;;
+    info)
+        shift
+        [[ $# -gt 0 ]] || { printf '%spkg: no package specified%s\n' "$RED" "$RESET" >&2; exit 2; }
+        run_pacman -Si "$@"
+        ;;
+    list)
+        run_pacman -Q
+        ;;
+    repo|repos)
+        pacman-conf | grep -E '^\[[^]]+\]$|^Server = ' || true
+        ;;
+    clean)
+        run_pacman -Sc
+        ;;
+    about)
+        printf '%spkg%s - Pacman package manager frontend\n' "$BOLD$CYAN" "$RESET"
+        printf '%sVersion:%s %s\n' "$YELLOW" "$RESET" "$VERSION"
+        printf '%sBackend:%s pacman\n' "$YELLOW" "$RESET"
+        ;;
+    help|--help|-h)
+        usage
+        ;;
+    --version|-v|version)
+        printf '%s\n' "$VERSION"
+        ;;
+    *)
+        printf '%spkg: unknown command: %s%s\n\n' "$RED" "$1" "$RESET" >&2
+        usage >&2
+        exit 2
+        ;;
+esac
