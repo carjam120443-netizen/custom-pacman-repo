@@ -2,11 +2,28 @@
 
 # cshell - lightweight Bash-style shell for MSYS2
 
-VERSION='1.1'
-PS1='cshell*>'
+VERSION='1.2'
+
+# Load system configuration, then allow a per-user config to override it.
+if [[ -f /etc/cshell.conf ]]; then
+    # shellcheck disable=SC1091
+    source /etc/cshell.conf
+fi
+if [[ -f "$HOME/.cshellrc" ]]; then
+    # shellcheck disable=SC1091
+    source "$HOME/.cshellrc"
+fi
+
+CSHELL_PROMPT=${CSHELL_PROMPT:-$'\033[1;36mcshell*\033[0m> '}
+CSHELL_COLOR=${CSHELL_COLOR:-1}
+
+# Keep the prompt as a literal value while allowing the default ANSI escapes.
+if [[ "$CSHELL_COLOR" != 1 ]]; then
+    CSHELL_PROMPT='cshell*> '
+fi
 
 while true; do
-    printf '%s ' "$PS1"
+    printf '%b' "$CSHELL_PROMPT"
     IFS= read -r line || { printf '\n'; break; }
 
     [[ -z "${line//[[:space:]]/}" || "$line" == \#* ]] && continue
@@ -16,14 +33,20 @@ while true; do
             break
             ;;
         about)
-            printf 'cshell - Bash-style shell for MSYS2\n'
-            printf 'Version: %s\n' "$VERSION"
+            if [[ "$CSHELL_COLOR" == 1 ]]; then
+                printf '\033[1;36mcshell\033[0m - Bash-style shell for MSYS2\n'
+                printf '\033[1;33mVersion:\033[0m %s\n' "$VERSION"
+            else
+                printf 'cshell - Bash-style shell for MSYS2\n'
+                printf 'Version: %s\n' "$VERSION"
+            fi
             ;;
         help)
             printf '%s\n' \
                 'cshell - a lightweight Bash-style shell' \
                 'Built-ins: cd, pwd, echo, export, alias, about, help, exit, quit' \
-                'External commands, pipes, redirection, &&, ||, and ; are handled by Bash.'
+                'External commands, pipes, redirection, &&, ||, and ; are handled by Bash.' \
+                'Config: /etc/cshell.conf or ~/.cshellrc'
             ;;
         cd|cd\ *)
             builtin cd ${line#cd} || printf 'cshell: cd: directory not found\n' >&2
