@@ -7,6 +7,7 @@ on:
       - 'PKGBUILDs/**'
       - 'scripts/**'
       - '.github/workflows/build-repo.yml'
+      - '.gitattributes'
   workflow_dispatch:
 
 permissions:
@@ -36,6 +37,12 @@ jobs:
           install: >-
             base-devel
             git
+            dos2unix
+
+      - name: Normalize package files to LF
+        run: |
+          set -e
+          find PKGBUILDs scripts -type f \( -name 'PKGBUILD' -o -name '*.sh' \) -exec dos2unix {} +
 
       - name: Build packages
         run: |
