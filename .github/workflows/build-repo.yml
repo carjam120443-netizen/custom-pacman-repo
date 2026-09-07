@@ -33,11 +33,17 @@ jobs:
         uses: msys2/setup-msys2@v2
         with:
           msystem: UCRT64
-          update: true
+          update: false
+          cache: true
           install: >-
             base-devel
             git
             dos2unix
+
+      - name: Update MSYS2 package databases
+        run: |
+          set -e
+          pacman -Sy --noconfirm
 
       - name: Normalize package files to LF
         run: |
@@ -92,6 +98,9 @@ jobs:
           </body>
           </html>
           EOF
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
 
       - name: Upload repository for Pages
         uses: actions/upload-pages-artifact@v3
