@@ -1,48 +1,49 @@
 pkgname=distrobox
 pkgver=1.8.2.5
-pkgrel=1
+pkgrel=2
 pkgdesc="Use any Linux distribution inside a terminal through Podman, Docker, or Lilipod"
 arch=('any')
 license=('GPL3')
-depends=('bash')
-optdepends=('podman: recommended container manager' 'docker: alternative container manager' 'lilipod: lightweight alternative container manager')
+depends=('bash' 'coreutils' 'findutils' 'grep' 'sed' 'awk')
+optdepends=('podman: recommended container manager' 'docker: alternative container manager' 'lilipod: lightweight alternative container manager' 'bash-completion: bash completions' 'zsh: zsh completions')
 source=("https://github.com/89luca89/distrobox/archive/refs/tags/${pkgver}.tar.gz")
 sha256sums=('SKIP')
 
 package() {
     cd "$srcdir/distrobox-${pkgver}"
 
+    # Distrobox v1 is a POSIX-shell project. Port the actual upstream
+    # executable scripts rather than replacing them with a wrapper.
     install -d "$pkgdir/usr/bin"
-    install -d "$pkgdir/usr/share/man/man1"
-    install -d "$pkgdir/usr/share/bash-completion/completions"
-    install -d "$pkgdir/usr/share/zsh/site-functions"
-    install -d "$pkgdir/usr/share/distrobox"
-
-    for file in distrobox*; do
-        if [[ -f "$file" && -x "$file" ]]; then
+    for file in distrobox distrobox-*; do
+        if [[ -f "$file" ]]; then
             install -m755 "$file" "$pkgdir/usr/bin/"
         fi
     done
 
-    if [[ -d completions/bash ]]; then
-        for file in completions/bash/*; do
-            [[ -f "$file" ]] && install -m644 "$file" "$pkgdir/usr/share/bash-completion/completions/"
-        done
-    fi
-
-    if [[ -d completions/zsh ]]; then
-        for file in completions/zsh/*; do
-            [[ -f "$file" ]] && install -m644 "$file" "$pkgdir/usr/share/zsh/site-functions/"
-        done
-    fi
-
-    if [[ -d man/man1 ]]; then
-        for file in man/man1/*; do
-            [[ -f "$file" ]] && install -m644 "$file" "$pkgdir/usr/share/man/man1/"
-        done
-    fi
-
+    # Runtime configuration shipped by the upstream project.
     if [[ -f distrobox.conf ]]; then
-        install -m644 distrobox.conf "$pkgdir/usr/share/distrobox/distrobox.conf"
+        install -Dm644 distrobox.conf "$pkgdir/usr/share/distrobox/distrobox.conf"
+    fi
+    if [[ -d extras ]]; then
+        find extras -type f -exec install -Dm644 '{}' "$pkgdir/usr/share/distrobox/{}" \;
+    fi
+
+    # All upstream man pages.
+    if [[ -d man ]]; then
+        find man -type f -name '*.1' -exec install -Dm644 '{}' "$pkgdir/usr/share/man/{}" \;
+    fi
+
+    # Bash and zsh completions.
+    if [[ -d completions/bash ]]; then
+        find completions/bash -type f -exec install -Dm644 '{}' "$pkgdir/usr/share/bash-completion/completions/{}" \;
+    fi
+    if [[ -d completions/zsh ]]; then
+        find completions/zsh -type f -exec install -Dm644 '{}' "$pkgdir/usr/share/zsh/site-functions/{}" \;
+    fi
+
+    # Distrobox icons used by distrobox-export/generate-entry.
+    if [[ -d icons ]]; then
+        find icons -type f -exec install -Dm644 '{}' "$pkgdir/usr/share/distrobox/{}" \;
     fi
 }
