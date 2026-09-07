@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+
+# su - Simple MSYS2 administrator utility
+# Opens a new elevated MSYS2 UCRT64 shell using Windows UAC.
+
+if command -v powershell.exe >/dev/null 2>&1; then
+    powershell.exe -NoProfile -Command 'Start-Process -Verb RunAs -FilePath "C:\\msys64\\usr\\bin\\bash.exe" -ArgumentList "-li"' >/dev/null
+    exit $?
+fi
+
+if command -v powershell >/dev/null 2>&1; then
+    powershell -NoProfile -Command 'Start-Process -Verb RunAs -FilePath "C:\\msys64\\usr\\bin\\bash.exe" -ArgumentList "-li"' >/dev/null
+    exit $?
+fi
+
+echo "su: PowerShell is required to request Windows administrator privileges." >&2
+exit 1
