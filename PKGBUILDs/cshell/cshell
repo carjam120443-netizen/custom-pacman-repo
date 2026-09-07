@@ -2,23 +2,27 @@
 
 # cshell - lightweight Bash-style shell for MSYS2
 
-PS1='cshell> '
+VERSION='1.1'
+PS1='cshell*>'
 
 while true; do
-    printf '%s' "$PS1"
+    printf '%s ' "$PS1"
     IFS= read -r line || { printf '\n'; break; }
 
-    # Ignore blank lines and comments.
     [[ -z "${line//[[:space:]]/}" || "$line" == \#* ]] && continue
 
     case "$line" in
         exit|quit)
             break
             ;;
+        about)
+            printf 'cshell - Bash-style shell for MSYS2\n'
+            printf 'Version: %s\n' "$VERSION"
+            ;;
         help)
             printf '%s\n' \
                 'cshell - a lightweight Bash-style shell' \
-                'Built-ins: cd, pwd, echo, export, alias, help, exit, quit' \
+                'Built-ins: cd, pwd, echo, export, alias, about, help, exit, quit' \
                 'External commands, pipes, redirection, &&, ||, and ; are handled by Bash.'
             ;;
         cd|cd\ *)
