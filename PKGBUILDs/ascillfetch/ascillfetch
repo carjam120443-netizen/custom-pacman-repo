@@ -1,9 +1,6 @@
 #!/usr/bin/env bash
 
-VERSION='1.0'
-
-# ascillfetch: ASCII-art system/OS gallery and fetch-style display.
-# All artwork is original/simple terminal art; no external assets are needed.
+VERSION='1.1'
 
 usage() {
     cat <<'EOF'
@@ -15,338 +12,310 @@ Commands:
   random               Show a random system
   categories           List artwork categories
   about                About ascillfetch
-  --version, -v       Show version
-  --help, -h          Show this help
-
-Examples:
-  ascillfetch
-  ascillfetch list
-  ascillfetch show freebsd
-  ascillfetch show ubuntu
-  ascillfetch random
+  --version, -v        Show version
+  --help, -h           Show this help
 EOF
 }
 
+# Keep each art block in a double-quoted string so backticks and apostrophes
+# inside the artwork can never be interpreted as shell syntax.
 art() {
+    local title icon
     case "$1" in
-        freebsd|openbsd|netbsd|dragonfly|ghostbsd|midnightbsd|trueos)
-            case "$1" in
-                freebsd) title='FreeBSD'; icon='      /\\_/\\
+        freebsd) title='FreeBSD'; icon="      /\\_/\\
      ( o.o )
       > ^ <
      /|   |\\
-    /_|___|_\\' ;;
-                openbsd) title='OpenBSD'; icon='     .-""-.
+    /_|___|_\\" ;;
+        openbsd) title='OpenBSD'; icon="     .-\"\"-.
     / .--. \\
    / /    \\ \\
    | | () | |
    \\ \\__/ /
-    `-.__.-`' ;;
-                netbsd) title='NetBSD'; icon='      __
+    \`-.__.-\`" ;;
+        netbsd) title='NetBSD'; icon="      __
    __(  )__
   /  /||\\  \\
  /__/ || \\__\\
-     /__\\' ;;
-                dragonfly) title='DragonFly BSD'; icon='       /\\
+     /__\\" ;;
+        dragonfly) title='DragonFly BSD'; icon="       /\\
       /  \\
   ___/ /\\ \\
  / _  /  \\ \\
 /____/    \\_\\
-   DragonFly' ;;
-                ghostbsd) title='GhostBSD'; icon='      .---.
+   DragonFly" ;;
+        ghostbsd) title='GhostBSD'; icon="      .---.
      / .-. \\
     | |o_o| |
     | |:_/| |
    //   \\\\ \\
   (|     | )
- /'\\_   _/`\\' ;;
-                midnightbsd) title='MidnightBSD'; icon='      .----.
+ /'\\_   _/`\\" ;;
+        midnightbsd) title='MidnightBSD'; icon="      .----.
      / .--. \\
     | |    | |
     | |____| |
      \\____/
-    Midnight' ;;
-                trueos) title='TrueOS'; icon='    _______
+    Midnight" ;;
+        trueos) title='TrueOS'; icon="    _______
    / _____ \\
   / /     \\
  | |  T  | |
   \\ \\___/ /
-   \\_____/' ;;
-            esac ;;
-        linux|ubuntu|debian|fedora|arch|manjaro|opensuse|gentoo|slackware|alpine|void|nixos|linuxmint|popos|kali|elementary|zorin)
-            case "$1" in
-                linux) title='Linux'; icon='       .-.       
+   \\_____/" ;;
+        linux) title='Linux'; icon="       .-.       
       (   )      
        | |       
      __| |__     
     /       \\
    /  Linux  \\
-  /___________\\' ;;
-                ubuntu) title='Ubuntu'; icon='      .----.
+  /___________\\" ;;
+        ubuntu) title='Ubuntu'; icon="      .----.
    .-(  o  o  )-.
   (      +      )
-   `-(       )-`
-      `-----`' ;;
-                debian) title='Debian'; icon='       __
+   \`-(       )-\`
+      \`-----\`" ;;
+        debian) title='Debian'; icon="       __
      _/  \\_
     /  /\\  \\
    |  /  \\  |
    | / () \\ |
     \\  /\\  /
-     \\____/' ;;
-                fedora) title='Fedora'; icon='       .-~~-.
+     \\____/" ;;
+        fedora) title='Fedora'; icon="       .-~~-.
      .-      -.
     /   .--.   \\
    |   (    )   |
-    \\   `--`  /
-     `-.____.-`' ;;
-                arch) title='Arch Linux'; icon='        /\\
+    \\   \`--\`  /
+     \`-.____.-\`" ;;
+        arch) title='Arch Linux'; icon="        /\\
        /  \\
       / /\\ \\
      / /  \\
     / /____\\
    /________\\
-      ARCH' ;;
-                manjaro) title='Manjaro'; icon='      |\\  /|
+      ARCH" ;;
+        manjaro) title='Manjaro'; icon="      |\\  /|
       | \\/ |
       |  /  |
    ___| /   |___
   /___|/____|___\\
-      MANJARO' ;;
-                opensuse) title='openSUSE'; icon='       ______
+      MANJARO" ;;
+        opensuse) title='openSUSE'; icon="       ______
      /        \\
     /  .----.  \\
    |  (  ()  )  |
-    \\  `----`  /
-     `--------`' ;;
-                gentoo) title='Gentoo'; icon='       .-.
+    \\  \`----\`  /
+     \`--------\`" ;;
+        gentoo) title='Gentoo'; icon="       .-.
       (o o)
       | O \\
        \\   \\
-        `~~~`' ;;
-                slackware) title='Slackware'; icon='      ______
+        \`~~~\`" ;;
+        slackware) title='Slackware'; icon="      ______
      / ____/\\
     / /___ / /
    /_____/ / \\
   /______/   \\
-    SLACK' ;;
-                alpine) title='Alpine Linux'; icon='       /\\
+    SLACK" ;;
+        alpine) title='Alpine Linux'; icon="       /\\
       /  \\
      / /\\ \\
     / /  \\
    /_/____\\
-     ALPINE' ;;
-                void) title='Void Linux'; icon='      \\\ \\
+     ALPINE" ;;
+        void) title='Void Linux'; icon="      \\\ \\
        \\\ \\
    _____\\_\\_____
   /      / \\
  /______/   \\
-     VOID' ;;
-                nixos) title='NixOS'; icon='      /\\_/\\
+     VOID" ;;
+        nixos) title='NixOS'; icon="      /\\_/\\
      ( o   o )
       \\_=_/
      /     \\
     / NIXOS \\
-   /_________\\' ;;
-                linuxmint) title='Linux Mint'; icon='      _______
+   /_________\\" ;;
+        linuxmint) title='Linux Mint'; icon="      _______
      /       \\
     |  MINT   |
     |   ___   |
      \\_/   \\_/
-      `-----`' ;;
-                popos) title='Pop!_OS'; icon='      ______
+      \`-----\`" ;;
+        popos) title='Pop!_OS'; icon="      ______
      /      \\
     |  POP!  |
     |   OS   |
-     \\______/' ;;
-                kali) title='Kali Linux'; icon='       /\\
+     \\______/" ;;
+        kali) title='Kali Linux'; icon="       /\\
       /  \\
      / /\\ \\
     / /__\\ \\
    /_/    \\\_
-     KALI' ;;
-                elementary) title='elementary OS'; icon='      .------.
+     KALI" ;;
+        elementary) title='elementary OS'; icon="      .------.
      /  .--.  \\
     |  /    \\  |
     | |  ()  | |
      \\  \\__/ /
-      `------`' ;;
-                zorin) title='Zorin OS'; icon='       ____
+      \`------\`" ;;
+        zorin) title='Zorin OS'; icon="       ____
       / __ \\
      / /  \\
     | | () | |
      \\ \\__/ /
-      `----`' ;;
-            esac ;;
-        freebsd-mobile|android|postmarketos|ubuntutouch|grapheneos|lineageos|sailfish)
-            case "$1" in
-                freebsd-mobile) title='FreeBSD Mobile'; icon='      .------.
-     /  /\\ /\\ \\
-    |  |  V  |  |
-    |  |     |  |
-    |  |_____|  |
-     \\________/' ;;
-                android) title='Android'; icon='      .-""-.
+      \`----\`" ;;
+        android) title='Android'; icon="      .-\"\"-.
      /  o  o  \\
     |    ^    |
     |  \\___/  |
-     `--.___.--`
-       Android' ;;
-                postmarketos) title='postmarketOS'; icon='      .------.
+     \`--.___.--\`
+       Android" ;;
+        postmarketos) title='postmarketOS'; icon="      .------.
      /  .--.  \\
     |  |    |  |
     |  | () |  |
-     \\  `--`  /
-      `------`' ;;
-                ubuntutouch) title='Ubuntu Touch'; icon='      .------.
+     \\  \`--\`  /
+      \`------\`" ;;
+        ubuntutouch) title='Ubuntu Touch'; icon="      .------.
      /  o  o  \\
     |    +    |
     |  .---.  |
-     \\ `---` /
-      Ubuntu T' ;;
-                grapheneos) title='GrapheneOS'; icon='       ______
+     \\ \`---\` /
+      Ubuntu T" ;;
+        grapheneos) title='GrapheneOS'; icon="       ______
       /      \\
      |  G O   |
      |   S    |
-      \\______/' ;;
-                lineageos) title='LineageOS'; icon='      .------.
+      \\______/" ;;
+        lineageos) title='LineageOS'; icon="      .------.
      /  /\\   \\
     |  /  \\   |
     | | () |   |
-     \\_\\__/__/' ;;
-                sailfish) title='Sailfish OS'; icon='       __/\\
+     \\_\\__/__/" ;;
+        sailfish) title='Sailfish OS'; icon="       __/\\
       /    \\
      /  /\\  \\
     |  /  \\  |
-     \\_/  \\_/' ;;
-            esac ;;
-        windows|windows95|windows98|windowsxp|windowsvista|windows7|windows8|windows10|windows11|msdos)
-            case "$1" in
-                windows) title='Windows'; icon='       ______  ______
+     \\_/  \\_/" ;;
+        windows) title='Windows'; icon="       ______  ______
       |      ||      |
       |      ||      |
       |______||______|
       |      ||      |
-      |______||______|' ;;
-                windows95) title='Windows 95'; icon='       ________
+      |______||______|" ;;
+        windows95) title='Windows 95'; icon="       ________
       /  ______  \\
      |  |  __  |  |
      |  | |  | |  |
      |  |_|__|_|  |
-      \\________/' ;;
-                windows98) title='Windows 98'; icon='       .------.
+      \\________/" ;;
+        windows98) title='Windows 98'; icon="       .------.
       /  .--.  \\
      |  |    |  |
      |  |____|  |
-      \\________/' ;;
-                windowsxp) title='Windows XP'; icon='       ______
+      \\________/" ;;
+        windowsxp) title='Windows XP'; icon="       ______
       |  _  _ |
       | | || ||
       | |_||_||
-      |  XP   |' ;;
-                windowsvista) title='Windows Vista'; icon='       .----.
+      |  XP   |" ;;
+        windowsvista) title='Windows Vista'; icon="       .----.
       /  .--.  \\
      |  | () |  |
      |  |____|  |
-      \\__\\__/ ' ;;
-                windows7) title='Windows 7'; icon='      .------.
+      \\__\\__/" ;;
+        windows7) title='Windows 7'; icon="      .------.
      | 7    / |
      |    /   |
      |   /    |
-     `--------`' ;;
-                windows8) title='Windows 8'; icon='      ________
+     \`--------\`" ;;
+        windows8) title='Windows 8'; icon="      ________
      |  |  |  |
      |  |  |  |
      |  |__|  |
-     |________|' ;;
-                windows10) title='Windows 10'; icon='      ________
+     |________|" ;;
+        windows10) title='Windows 10'; icon="      ________
      |  |  |  |
      |  |  |  |
      |  |  |  |
-     |__|__|__|' ;;
-                windows11) title='Windows 11'; icon='      ________
+     |__|__|__|" ;;
+        windows11) title='Windows 11'; icon="      ________
      |  |  |  |
      |  |  |  |
      |  |  |  |
-     |__|__|__|' ;;
-                msdos) title='MS-DOS'; icon='     +----------------+
+     |__|__|__|" ;;
+        msdos) title='MS-DOS'; icon="     +----------------+
      | C:\\> _         |
      |                |
      | MS-DOS         |
-     +----------------+' ;;
-            esac ;;
-        macos|ios|classicmac)
-            case "$1" in
-                macos) title='macOS'; icon='       .-""-.
+     +----------------+" ;;
+        macos) title='macOS'; icon="       .-\"\"-.
       /  .--.  \\
      |  |    |  |
      |  | () |  |
-      \\  `--` /
-       `-.__.-`' ;;
-                ios) title='iOS'; icon='      .------.
+      \\  \`--\` /
+       \`-.__.-\`" ;;
+        ios) title='iOS'; icon="      .------.
      /  .----.  \\
     |  | iOS |  |
     |  |     |  |
-     \\  `---`  /
-      `------`' ;;
-                classicmac) title='Classic Mac OS'; icon='      .------.
+     \\  \`---\`  /
+      \`------\`" ;;
+        classicmac) title='Classic Mac OS'; icon="      .------.
      /  _____  \\
     |  |     |  |
     |  |_____|  |
-     \\________/' ;;
-            esac ;;
-        unix|solaris|illumos|aix|hpux|irix|plan9|haiku)
-            case "$1" in
-                unix) title='UNIX'; icon='       ______
+     \\________/" ;;
+        unix) title='UNIX'; icon="       ______
       / ____ \\
      / /    \\
     | | UNIX | |
      \\ \\____/ /
-      `------`' ;;
-                solaris) title='Solaris'; icon='       .----.
+      \`------\`" ;;
+        solaris) title='Solaris'; icon="       .----.
       / .--. \\
      | |    | |
      | |____| |
       \\_____/ \\
-       Solaris' ;;
-                illumos) title='illumos'; icon='      .-~~-.
+       Solaris" ;;
+        illumos) title='illumos'; icon="      .-~~-.
      /  /\\  \\
     |  /  \\  |
     | /____\\ |
-     `-illumos-' ;;
-                aix) title='AIX'; icon='      ______
+     \`-illumos-\`" ;;
+        aix) title='AIX'; icon="      ______
      /  __  \\
     |  /  \\  |
     | | AIX | |
      \\ \\__/ /
-      `------`' ;;
-                hpux) title='HP-UX'; icon='      ______
+      \`------\`" ;;
+        hpux) title='HP-UX'; icon="      ______
      |  HP   |
      |  UX   |
      | UNIX  |
-     `-------`' ;;
-                irix) title='IRIX'; icon='      .----.
+     \`-------\`" ;;
+        irix) title='IRIX'; icon="      .----.
      / IRIX \\
     |  UNIX  |
      \\      /
-      `----`' ;;
-                plan9) title='Plan 9'; icon='       /\\_/\\
+      \`----\`" ;;
+        plan9) title='Plan 9'; icon="       /\\_/\\
       ( o   o )
        \\_=_/
       /| 9 |\\
-     /_|___|_\\' ;;
-                haiku) title='Haiku'; icon='       /\\
+     /_|___|_\\" ;;
+        haiku) title='Haiku'; icon="       /\\
       /  \\
      |  ()  |
      | Haiku |
-      \\____/' ;;
-            esac ;;
+      \\____/" ;;
         *) return 1 ;;
     esac
     printf '\033[1;36m╭────────────────────────────────────╮\033[0m\n'
     printf '\033[1;36m│ %-34s │\033[0m\n' "$title"
     printf '\033[1;36m╰────────────────────────────────────╯\033[0m\n'
-    printf '%b\n' "$icon"
+    printf '%s\n' "$icon"
 }
 
 names=(freebsd openbsd netbsd dragonfly ghostbsd midnightbsd trueos linux ubuntu debian fedora arch manjaro opensuse gentoo slackware alpine void nixos linuxmint popos kali elementary zorin android postmarketos ubuntutouch grapheneos lineageos sailfish windows windows95 windows98 windowsxp windowsvista windows7 windows8 windows10 windows11 msdos macos ios classicmac unix solaris illumos aix hpux irix plan9 haiku)
@@ -358,13 +327,8 @@ case "${1:-random}" in
     show) [[ -n "$2" ]] && art "$(printf '%s' "$2" | tr '[:upper:]' '[:lower:]')" || { echo 'Usage: ascillfetch show NAME'; exit 1; } ;;
     random) art "${names[RANDOM % ${#names[@]}]}" ;;
     categories)
-        printf '%s\n' 'BSD: FreeBSD OpenBSD NetBSD DragonFly BSD GhostBSD MidnightBSD TrueOS' \
-            'Linux: Linux Ubuntu Debian Fedora Arch Manjaro openSUSE Gentoo Slackware Alpine Void NixOS Linux Mint Pop!_OS Kali elementary Zorin' \
-            'Mobile: Android postmarketOS Ubuntu Touch GrapheneOS LineageOS Sailfish OS' \
-            'Windows: Windows 95/98/XP/Vista/7/8/10/11, MS-DOS' \
-            'Apple: macOS iOS Classic Mac OS' \
-            'Unix/Other: UNIX Solaris illumos AIX HP-UX IRIX Plan 9 Haiku' ;;
-    about) printf 'ascillfetch v%s\nA built-in ASCII operating-system art gallery for the terminal.\nIncludes %d prebuilt entries across BSD, Linux, mobile, Windows, Apple, and Unix/other systems.\n' "$VERSION" "${#names[@]}" ;;
+        printf '%s\n' 'BSD: FreeBSD OpenBSD NetBSD DragonFly BSD GhostBSD MidnightBSD TrueOS' 'Linux: Linux Ubuntu Debian Fedora Arch Manjaro openSUSE Gentoo Slackware Alpine Void NixOS Linux Mint Pop!_OS Kali elementary Zorin' 'Mobile: Android postmarketOS Ubuntu Touch GrapheneOS LineageOS Sailfish OS' 'Windows: Windows 95/98/XP/Vista/7/8/10/11, MS-DOS' 'Apple: macOS iOS Classic Mac OS' 'Unix/Other: UNIX Solaris illumos AIX HP-UX IRIX Plan 9 Haiku' ;;
+    about) printf 'ascillfetch v%s\nA built-in operating-system ASCII art gallery for the terminal.\nIncludes %d prebuilt entries.\n' "$VERSION" "${#names[@]}" ;;
     --version|-v|version) printf 'ascillfetch version %s\n' "$VERSION" ;;
     --help|-h|help) usage ;;
     *) art "$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]')" || { echo "Unknown system: $1" >&2; usage; exit 1; } ;;
