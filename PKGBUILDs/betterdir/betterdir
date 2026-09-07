@@ -1,0 +1,161 @@
+#!/usr/bin/env bash
+
+# betterdir - a friendlier mkdir replacement for MSYS2
+VERSION='1.0'
+
+COLOR=1
+if [[ -f /etc/betterdir.conf ]]; then
+    # shellcheck disable=SC1091
+    source /etc/betterdir.conf
+fi
+if [[ -f "$HOME/.betterdirrc" ]]; then
+    # shellcheck disable=SC1091
+    source "$HOME/.betterdirrc"
+fi
+
+if [[ "${BETTERDIR_COLOR:-1}" != 1 ]]; then
+    COLOR=0
+fi
+
+if (( COLOR )); then
+    CYAN=$'\033[1;36m'
+    GREEN=$'\033[1;32m'
+    YELLOW=$'\033[1;33m'
+    RED=$'\033[1;31m'
+    RESET=$'\033[0m'
+else
+    CYAN=''; GREEN=''; YELLOW=''; RED=''; RESET=''
+fi
+
+info() { printf '%s%s%s\n' "$CYAN" "$1" "$RESET"; }
+ok() { printf '%s%s%s\n' "$GREEN" "$1" "$RESET"; }
+warn() { printf '%s%s%s\n' "$YELLOW" "$1" "$RESET"; }
+err() { printf '%s%s%s\n' "$RED" "$1" "$RESET" >&2; }
+
+usage() {
+    printf '%s\n' \
+      'betterdir - mkdir, but better' \
+      '' \
+      'Usage: betterdir [options] DIRECTORY...' \
+      '' \
+      'Options:' \
+      '  -p, --parents       Create parent directories as needed' \
+      '  -v, --verbose       Explain each directory created' \
+      '  -t, --tree          Create a directory tree from a path' \
+      '  --here              Create a directory and enter it' \
+      '  --list              List directories that would be created' \
+      '  --version           Show version' \
+      '  -h, --help          Show this help' \
+      '' \
+      'Unlike mkdir, betterdir defaults to creating exactly the directories you name.' \
+      'The --here option changes into the final directory in the current shell process.'
+}
+
+if [[ $# -eq 0 ]]; then
+    usage
+    exit 1
+fi
+
+parents=0
+verbose=0
+here=0
+list_only=0
+paths=()
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -p|--parents)
+            parents=1
+            shift
+            ;;
+        -v|--verbose)
+            verbose=1
+            shift
+            ;;
+        -t|--tree)
+            parents=1
+            shift
+            ;;
+        --here)
+            here=1
+            parents=1
+            shift
+            ;;
+        --list)
+            list_only=1
+            shift
+            ;;
+        --version|-V)
+            printf 'betterdir version %s\n' "$VERSION"
+            exit 0
+            ;;
+        -h|--help)
+            usage
+            exit 0
+            ;;
+        --)
+            shift
+            while [[ $# -gt 0 ]]; do
+                paths+=("$1")
+                shift
+            done
+            ;;
+        -* )
+            err "betterdir: unknown option: $1"
+            printf 'Try "betterdir --help" for more information.\n' >&2
+            exit 2
+            ;;
+        *)
+            paths+=("$1")
+            shift
+            ;;
+    esac
+done
+
+if [[ ${#paths[@]} -eq 0 ]]; then
+    err 'betterdir: no directory specified'
+    exit 2
+fi
+
+if (( list_only )); then
+    for path in "${paths[@]}"; do
+        printf '%s\n' "$path"
+    done
+    exit 0
+fi
+
+for path in "${paths[@]}"; do
+    if [[ -d "$path" ]]; then
+        warn "Already exists: $path"
+        continue
+    fi
+
+    if (( parents )); then
+        if mkdir -p -- "$path"; then
+            if (( verbose )); then
+                ok "Created: $path"
+            fi
+        else
+            err "Failed to create: $path"
+            exit 1
+        fi
+    else
+        if mkdir -- "$path"; then
+            ok "Created: $path"
+        else
+            err "Failed to create: $path"
+            exit 1
+        fi
+    fi
+
+done
+
+if (( here )); then
+    target="${paths[${#paths[@]}-1]}"
+    if cd -- "$target"; then
+        ok "Now in: $PWD"
+    else
+        err "Created, but could not enter: $target"
+        exit 1
+    fi
+fi
