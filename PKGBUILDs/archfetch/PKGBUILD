@@ -1,0 +1,13 @@
+pkgname=archfetch
+pkgver=1.0
+pkgrel=1
+pkgdesc="A lightweight system information fetch utility for MSYS2"
+arch=('any')
+license=('MIT')
+source=('archfetch')
+sha256sums=('SKIP')
+
+package() {
+    install -Dm755 "$srcdir/archfetch" \
+        "$pkgdir/usr/bin/archfetch"
+}
