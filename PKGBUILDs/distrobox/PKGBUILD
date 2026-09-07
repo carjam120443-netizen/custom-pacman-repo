@@ -1,0 +1,48 @@
+pkgname=distrobox
+pkgver=1.8.2.5
+pkgrel=1
+pkgdesc="Use any Linux distribution inside a terminal through Podman, Docker, or Lilipod"
+arch=('any')
+license=('GPL3')
+depends=('bash')
+optdepends=('podman: recommended container manager' 'docker: alternative container manager' 'lilipod: lightweight alternative container manager')
+source=("https://github.com/89luca89/distrobox/archive/refs/tags/${pkgver}.tar.gz")
+sha256sums=('SKIP')
+
+package() {
+    cd "$srcdir/distrobox-${pkgver}"
+
+    install -d "$pkgdir/usr/bin"
+    install -d "$pkgdir/usr/share/man/man1"
+    install -d "$pkgdir/usr/share/bash-completion/completions"
+    install -d "$pkgdir/usr/share/zsh/site-functions"
+    install -d "$pkgdir/usr/share/distrobox"
+
+    for file in distrobox*; do
+        if [[ -f "$file" && -x "$file" ]]; then
+            install -m755 "$file" "$pkgdir/usr/bin/"
+        fi
+    done
+
+    if [[ -d completions/bash ]]; then
+        for file in completions/bash/*; do
+            [[ -f "$file" ]] && install -m644 "$file" "$pkgdir/usr/share/bash-completion/completions/"
+        done
+    fi
+
+    if [[ -d completions/zsh ]]; then
+        for file in completions/zsh/*; do
+            [[ -f "$file" ]] && install -m644 "$file" "$pkgdir/usr/share/zsh/site-functions/"
+        done
+    fi
+
+    if [[ -d man/man1 ]]; then
+        for file in man/man1/*; do
+            [[ -f "$file" ]] && install -m644 "$file" "$pkgdir/usr/share/man/man1/"
+        done
+    fi
+
+    if [[ -f distrobox.conf ]]; then
+        install -m644 distrobox.conf "$pkgdir/usr/share/distrobox/distrobox.conf"
+    fi
+}
