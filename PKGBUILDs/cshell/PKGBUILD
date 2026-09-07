@@ -1,7 +1,7 @@
 pkgname=cshell
-pkgver=1.0
+pkgver=1.2
 pkgrel=1
-pkgdesc="A lightweight Bash-style shell for MSYS2"
+pkgdesc="A lightweight Bash-style shell for MSYS2 with colors and configuration"
 arch=('any')
 license=('MIT')
 depends=('bash')
@@ -11,4 +11,6 @@ sha256sums=()
 package() {
     install -Dm755 "$startdir/cshell" \
         "$pkgdir/usr/bin/cshell"
+    install -Dm644 "$startdir/cshell.conf" \
+        "$pkgdir/etc/cshell.conf"
 }
