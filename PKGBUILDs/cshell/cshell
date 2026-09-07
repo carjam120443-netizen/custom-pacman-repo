@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+
+# cshell - lightweight Bash-style shell for MSYS2
+
+PS1='cshell> '
+
+while true; do
+    printf '%s' "$PS1"
+    IFS= read -r line || { printf '\n'; break; }
+
+    # Ignore blank lines and comments.
+    [[ -z "${line//[[:space:]]/}" || "$line" == \#* ]] && continue
+
+    case "$line" in
+        exit|quit)
+            break
+            ;;
+        help)
+            printf '%s\n' \
+                'cshell - a lightweight Bash-style shell' \
+                'Built-ins: cd, pwd, echo, export, alias, help, exit, quit' \
+                'External commands, pipes, redirection, &&, ||, and ; are handled by Bash.'
+            ;;
+        cd|cd\ *)
+            builtin cd ${line#cd} || printf 'cshell: cd: directory not found\n' >&2
+            ;;
+        *)
+            bash -c "$line"
+            status=$?
+            if (( status != 0 )); then
+                printf 'cshell: command exited with status %d\n' "$status" >&2
+            fi
+            ;;
+    esac
+done
