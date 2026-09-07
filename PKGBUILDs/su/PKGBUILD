@@ -1,6 +1,6 @@
 pkgname=su
 pkgver=1.0
-pkgrel=2
+pkgrel=3
 pkgdesc="Simple MSYS2 administrator utility with elevated command support"
 arch=('any')
 license=('MIT')
