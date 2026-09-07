@@ -1,0 +1,12 @@
+pkgname=ascillfetch
+pkgver=1.0
+pkgrel=1
+pkgdesc="A huge collection of prebuilt ASCII system-art fetches for BSD, Unix, Linux, mobile, PC, and Windows systems"
+arch=('any')
+license=('MIT')
+depends=('bash')
+source=()
+sha256sums=()
+package() {
+    install -Dm755 "$startdir/ascillfetch" "$pkgdir/usr/bin/ascillfetch"
+}
