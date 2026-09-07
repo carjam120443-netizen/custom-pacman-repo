@@ -1,7 +1,7 @@
 pkgname=sudo-destroyers
-pkgver=1.0
+pkgver=2.0
 pkgrel=1
-pkgdesc="A harmless terminal game about defeating simulated sudo destroyers"
+pkgdesc="A harmless terminal RPG with battles, levels, upgrades, and save files"
 arch=('any')
 license=('MIT')
 depends=('bash')
