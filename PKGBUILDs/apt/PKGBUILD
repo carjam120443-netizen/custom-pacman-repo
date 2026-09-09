@@ -1,7 +1,7 @@
 pkgname=apt
 pkgver=1.0
-pkgrel=1
-pkgdesc="APT-style package manager frontend for Pacman on MSYS2"
+pkgrel=2
+pkgdesc="Debian-style APT frontend for Pacman on MSYS2"
 arch=('any')
 license=('MIT')
 depends=('bash' 'pacman')
@@ -9,5 +9,5 @@ source=()
 sha256sums=()
 
 package() {
-    install -Dm755 "$startdir/apt" "$pkgdir/usr/bin/apt"
+    install -Dm755 "$startdir/PKGBUILDs/apt/apt" "$pkgdir/usr/bin/apt"
 }
