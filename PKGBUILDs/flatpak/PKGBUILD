@@ -1,5 +1,5 @@
 pkgname=flatpak
-pkgver=1.1
+pkgver=1.2
 pkgrel=1
 pkgdesc="Flatpak-style application manager with configurable remotes and real Flathub integration for MSYS2"
 arch=('any')
@@ -15,7 +15,7 @@ package() {
 #!/usr/bin/env bash
 set -e
 
-VERSION='1.1'
+VERSION='1.2'
 FLATHUB_API='https://flathub.org/api/v2'
 FLATHUB_REPO='https://dl.flathub.org/repo/flathub.flatpakrepo'
 CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/flatpak"
@@ -43,27 +43,15 @@ Commands:
   run APP                  Show how to run the downloaded Flatpak
   version                  Show version
   help                     Show this help
-
-Remote examples:
-  flatpak remote-add flathub https://dl.flathub.org/repo/flathub.flatpakrepo
-  flatpak remote-add myrepo https://example.com/repo/myrepo.flatpakrepo
-  flatpak remote-delete myrepo
-  flatpak remotes
-
-NOTE: This package provides real Flathub search/metadata/download access
-and stores custom remote definitions. It does not install Flatpak runtimes
-into MSYS2 or pretend that a .flatpak bundle is an MSYS2 executable.
 HELP
 }
 
 remote_add() {
     if (( $# != 2 )); then
         echo 'Usage: flatpak remote-add NAME URL' >&2
-        echo '       flatpak remote-add flathub' >&2
         return 1
     fi
-    local name="$1"
-    local url="$2"
+    local name="$1" url="$2"
     if [[ ! "$name" =~ ^[A-Za-z0-9._-]+$ ]]; then
         echo "flatpak: invalid remote name: $name" >&2
         return 1
@@ -115,8 +103,11 @@ search_apps() {
         echo 'flatpak: search query required' >&2
         return 1
     fi
-    curl -fsSL --get "$FLATHUB_API/search" --data-urlencode "query=$*" \
-        | sed -n '1,240p'
+    local query="$*"
+    curl -fsSL -X POST "$FLATHUB_API/search" \
+        -H 'Content-Type: application/json' \
+        --data "$(printf '%s' "$query" | awk 'BEGIN { printf "{\"query\":\"" } { gsub(/\\/, "\\\\"); gsub(/"/, "\\\""); printf "%s", $0 } END { printf "\",\"filters\":[]}" }')" \
+        | sed -n '1,260p'
 }
 
 info_app() {
@@ -133,15 +124,12 @@ install_app() {
         return 1
     fi
     mkdir -p "$INSTALL_DIR"
-    local app="$1"
-    local safe="${app//\//_}"
-    local output="$INSTALL_DIR/${safe}.flatpak"
+    local app="$1" output="$INSTALL_DIR/${1//\//_}.flatpak"
     echo "==> Looking up $app on real Flathub"
     local url
     url="$(curl -fsSL "$FLATHUB_API/apps/$app" | sed -n 's/.*"bundle_url":"\([^"]*\.flatpak\)".*/\1/p' | head -n1)"
     if [[ -z "$url" ]]; then
         echo 'flatpak: no downloadable Flatpak bundle was found in Flathub metadata.' >&2
-        echo 'Use: flatpak info APP' >&2
         return 1
     fi
     echo "==> Downloading: $url"
@@ -154,8 +142,7 @@ uninstall_app() {
         echo 'flatpak: application ID required' >&2
         return 1
     fi
-    local safe="${1//\//_}"
-    local file="$INSTALL_DIR/${safe}.flatpak"
+    local file="$INSTALL_DIR/${1//\//_}.flatpak"
     if [[ -f "$file" ]]; then
         rm -f "$file"
         echo "Removed: $file"
@@ -173,55 +160,39 @@ list_apps() {
 
 update_remotes() {
     remote_list
+    [[ -f "$REMOTES_FILE" ]] || return 0
     echo
     while IFS=$'\t' read -r name url; do
         [[ -z "$name" ]] && continue
         echo "==> Checking $name: $url"
         if curl -fsIL --max-time 15 "$url" >/dev/null 2>&1; then
-            echo "    OK"
+            echo '    OK'
         else
-            echo "    unavailable"
+            echo '    unavailable'
         fi
-    done < "$REMOTES_FILE" 2>/dev/null || true
+    done < "$REMOTES_FILE"
 }
 
 case "${1:-help}" in
     remote-add)
         shift
-        if [[ "${1:-}" == flathub && $# -eq 1 ]]; then
-            add_flathub
-        else
-            remote_add "$@"
-        fi ;;
-    remote-delete|remote-rm)
-        shift; remote_delete "$@" ;;
-    remote-list|remotes)
-        remote_list ;;
-    search)
-        shift; search_apps "$@" ;;
-    info)
-        shift; info_app "$@" ;;
-    install)
-        shift; install_app "$@" ;;
-    uninstall|remove)
-        shift; uninstall_app "$@" ;;
-    list)
-        list_apps ;;
-    update)
-        update_remotes ;;
+        if [[ "${1:-}" == flathub && $# -eq 1 ]]; then add_flathub; else remote_add "$@"; fi ;;
+    remote-delete|remote-rm) shift; remote_delete "$@" ;;
+    remote-list|remotes) remote_list ;;
+    search) shift; search_apps "$@" ;;
+    info) shift; info_app "$@" ;;
+    install) shift; install_app "$@" ;;
+    uninstall|remove) shift; uninstall_app "$@" ;;
+    list) list_apps ;;
+    update) update_remotes ;;
     run)
         shift
-        if (( $# == 0 )); then echo 'flatpak: application ID required' >&2; exit 1; fi
+        [[ $# -gt 0 ]] || { echo 'flatpak: application ID required' >&2; exit 1; }
         echo "Downloaded bundle for $1 would normally be launched by the native Flatpak runtime."
         echo 'This MSYS2 frontend intentionally does not execute .flatpak bundles.' ;;
-    version|--version|-v)
-        printf 'flatpak (remote frontend) version %s\n' "$VERSION" ;;
-    help|--help|-h)
-        usage ;;
-    *)
-        echo "flatpak: unknown command: $1" >&2
-        usage
-        exit 1 ;;
+    version|--version|-v) printf 'flatpak (remote frontend) version %s\n' "$VERSION" ;;
+    help|--help|-h) usage ;;
+    *) echo "flatpak: unknown command: $1" >&2; usage; exit 1 ;;
 esac
 EOF
 
