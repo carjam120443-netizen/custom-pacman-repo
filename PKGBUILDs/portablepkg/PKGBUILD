@@ -1,0 +1,13 @@
+pkgname=portablepkg
+pkgver=1.0
+pkgrel=1
+pkgdesc="Portable package manager frontend for Pacman packages"
+arch=('any')
+license=('MIT')
+depends=('bash' 'pacman')
+source=()
+sha256sums=()
+
+package() {
+    install -Dm755 "$startdir/portablepkg" "$pkgdir/usr/bin/portablepkg"
+}
