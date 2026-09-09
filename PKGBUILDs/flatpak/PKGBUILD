@@ -1,7 +1,7 @@
 pkgname=flatpak
-pkgver=1.0
+pkgver=1.1
 pkgrel=1
-pkgdesc="Flatpak-style application manager with real Flathub integration for MSYS2"
+pkgdesc="Flatpak-style application manager with configurable remotes and real Flathub integration for MSYS2"
 arch=('any')
 license=('MIT')
 depends=('bash' 'curl')
@@ -15,49 +15,99 @@ package() {
 #!/usr/bin/env bash
 set -e
 
-VERSION='1.0'
+VERSION='1.1'
 FLATHUB_API='https://flathub.org/api/v2'
 FLATHUB_REPO='https://dl.flathub.org/repo/flathub.flatpakrepo'
 CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/flatpak"
+REMOTES_FILE="$CONFIG_DIR/remotes"
 INSTALL_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/flatpak-apps"
 
 usage() {
     cat <<'HELP'
 Usage: flatpak <command> [arguments...]
 
-Flatpak/Flathub frontend for MSYS2.
+Flatpak/remote frontend for MSYS2.
 
 Commands:
+  remote-add NAME URL      Add a custom Flatpak remote
   remote-add flathub       Add the real Flathub remote
-  remotes                  List configured remotes
+  remote-delete NAME       Remove a configured remote
+  remote-list              List configured remotes
+  remotes                  Alias for remote-list
   search QUERY             Search real Flathub applications
   info APP                 Show real Flathub application information
   install APP              Download a real Flatpak bundle from Flathub
   uninstall APP            Remove a locally downloaded Flatpak
   list                     List locally downloaded Flatpaks
-  update                   Check configured Flathub metadata
+  update                   Check configured remote metadata
   run APP                  Show how to run the downloaded Flatpak
   version                  Show version
   help                     Show this help
 
-NOTE: This package provides real Flathub search/metadata/download access.
-It does not pretend that a .flatpak bundle is an MSYS2 executable and does
-not install Flatpak runtimes into MSYS2.
+Remote examples:
+  flatpak remote-add flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+  flatpak remote-add myrepo https://example.com/repo/myrepo.flatpakrepo
+  flatpak remote-delete myrepo
+  flatpak remotes
+
+NOTE: This package provides real Flathub search/metadata/download access
+and stores custom remote definitions. It does not install Flatpak runtimes
+into MSYS2 or pretend that a .flatpak bundle is an MSYS2 executable.
 HELP
 }
 
 remote_add() {
+    if (( $# != 2 )); then
+        echo 'Usage: flatpak remote-add NAME URL' >&2
+        echo '       flatpak remote-add flathub' >&2
+        return 1
+    fi
+    local name="$1"
+    local url="$2"
+    if [[ ! "$name" =~ ^[A-Za-z0-9._-]+$ ]]; then
+        echo "flatpak: invalid remote name: $name" >&2
+        return 1
+    fi
+    if [[ ! "$url" =~ ^https?:// ]]; then
+        echo 'flatpak: remote URL must start with http:// or https://' >&2
+        return 1
+    fi
     mkdir -p "$CONFIG_DIR"
-    printf '%s\n' "$FLATHUB_REPO" > "$CONFIG_DIR/flathub"
-    echo "Flathub remote added: $FLATHUB_REPO"
+    touch "$REMOTES_FILE"
+    grep -v -E "^${name}[[:space:]]" "$REMOTES_FILE" > "$REMOTES_FILE.tmp" || true
+    printf '%s\t%s\n' "$name" "$url" >> "$REMOTES_FILE.tmp"
+    mv "$REMOTES_FILE.tmp" "$REMOTES_FILE"
+    echo "Remote added: $name -> $url"
 }
 
-remotes() {
-    if [[ -f "$CONFIG_DIR/flathub" ]]; then
-        echo "flathub  $(cat "$CONFIG_DIR/flathub")"
-    else
-        echo 'No Flatpak remotes configured.'
+add_flathub() {
+    remote_add flathub "$FLATHUB_REPO"
+}
+
+remote_delete() {
+    if (( $# != 1 )); then
+        echo 'Usage: flatpak remote-delete NAME' >&2
+        return 1
     fi
+    local name="$1"
+    if [[ ! -f "$REMOTES_FILE" ]] || ! grep -q -E "^${name}[[:space:]]" "$REMOTES_FILE"; then
+        echo "flatpak: remote not found: $name" >&2
+        return 1
+    fi
+    grep -v -E "^${name}[[:space:]]" "$REMOTES_FILE" > "$REMOTES_FILE.tmp" || true
+    mv "$REMOTES_FILE.tmp" "$REMOTES_FILE"
+    echo "Remote removed: $name"
+}
+
+remote_list() {
+    if [[ ! -s "$REMOTES_FILE" ]]; then
+        echo 'No Flatpak remotes configured.'
+        return 0
+    fi
+    printf '%-20s %s\n' 'NAME' 'URL'
+    while IFS=$'\t' read -r name url; do
+        [[ -n "$name" ]] && printf '%-20s %s\n' "$name" "$url"
+    done < "$REMOTES_FILE"
 }
 
 search_apps() {
@@ -121,11 +171,32 @@ list_apps() {
     fi
 }
 
+update_remotes() {
+    remote_list
+    echo
+    while IFS=$'\t' read -r name url; do
+        [[ -z "$name" ]] && continue
+        echo "==> Checking $name: $url"
+        if curl -fsIL --max-time 15 "$url" >/dev/null 2>&1; then
+            echo "    OK"
+        else
+            echo "    unavailable"
+        fi
+    done < "$REMOTES_FILE" 2>/dev/null || true
+}
+
 case "${1:-help}" in
     remote-add)
-        shift; [[ "${1:-}" == flathub ]] || { echo 'Usage: flatpak remote-add flathub'; exit 1; }; remote_add ;;
-    remotes)
-        remotes ;;
+        shift
+        if [[ "${1:-}" == flathub && $# -eq 1 ]]; then
+            add_flathub
+        else
+            remote_add "$@"
+        fi ;;
+    remote-delete|remote-rm)
+        shift; remote_delete "$@" ;;
+    remote-list|remotes)
+        remote_list ;;
     search)
         shift; search_apps "$@" ;;
     info)
@@ -137,16 +208,14 @@ case "${1:-help}" in
     list)
         list_apps ;;
     update)
-        remote_add >/dev/null
-        echo 'Flathub remote metadata endpoint is available.'
-        curl -fsSL "$FLATHUB_REPO" | sed -n '1,40p' ;;
+        update_remotes ;;
     run)
         shift
         if (( $# == 0 )); then echo 'flatpak: application ID required' >&2; exit 1; fi
         echo "Downloaded bundle for $1 would normally be launched by the native Flatpak runtime."
         echo 'This MSYS2 frontend intentionally does not execute .flatpak bundles.' ;;
     version|--version|-v)
-        printf 'flatpak (Flathub frontend) version %s\n' "$VERSION" ;;
+        printf 'flatpak (remote frontend) version %s\n' "$VERSION" ;;
     help|--help|-h)
         usage ;;
     *)
