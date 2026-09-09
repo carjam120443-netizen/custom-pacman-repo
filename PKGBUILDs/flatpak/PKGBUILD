@@ -1,10 +1,10 @@
 pkgname=flatpak
-pkgver=1.3
+pkgver=1.4
 pkgrel=1
 pkgdesc="Flatpak-style application manager with configurable remotes and real Flathub integration for MSYS2"
 arch=('any')
 license=('MIT')
-depends=('bash' 'curl' 'jq')
+depends=('bash' 'curl')
 source=()
 sha256sums=()
 
@@ -15,7 +15,7 @@ package() {
 #!/usr/bin/env bash
 set -e
 
-VERSION='1.3'
+VERSION='1.4'
 FLATHUB_API='https://flathub.org/api/v2'
 FLATHUB_REPO='https://dl.flathub.org/repo/flathub.flatpakrepo'
 CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/flatpak"
@@ -114,33 +114,55 @@ search_apps() {
         return 1
     fi
     local query="$*"
-    local results
-    results="$(curl -fsSL -X POST "$FLATHUB_API/search" \
-        -H 'Content-Type: application/json' \
-        --data "$(printf '%s' "$query" | awk 'BEGIN { printf "{\"query\":\"" } { gsub(/\\/, "\\\\"); gsub(/"/, "\\\""); printf "%s", $0 } END { printf "\",\"filters\":[]}" }')")"
+    local payload
+    payload="$(printf '%s' "$query" | awk 'BEGIN { printf "{\"query\":\"" } { gsub(/\\/, "\\\\"); gsub(/"/, "\\\""); printf "%s", $0 } END { printf "\",\"filters\":[]}" }')"
 
     echo
     printf 'Flathub search: %s\n' "$query"
     echo '────────────────────────────────────────────────────────────'
 
-    if ! jq -e '.hits // .results // empty' >/dev/null 2>&1 <<<"$results"; then
-        echo 'flatpak: unexpected response from Flathub.' >&2
-        return 1
-    fi
+    local json
+    json="$(curl -fsSL -X POST "$FLATHUB_API/search" \
+        -H 'Content-Type: application/json' \
+        --data "$payload")"
 
-    local count
-    count="$(jq '[.hits // .results // []] | .[0] | length' <<<"$results")"
-    if [[ "$count" == '0' ]]; then
+    # The Flathub API returns JSON.  Extract the common fields without jq so
+    # this package stays usable in a minimal MSYS2 installation.
+    local count=0 name app_id summary
+    while IFS=$'\t' read -r name app_id summary; do
+        [[ -n "$name" ]] || continue
+        ((++count))
+        printf '\n[%d] %s\n' "$count" "$name"
+        printf '    ID: %s\n' "${app_id:-unknown}"
+        printf '    %s\n' "${summary:-No description available.}"
+    done < <(
+        printf '%s' "$json" |
+        tr '{' '\n' |
+        grep -E '"(name|app_id|id|summary)"[[:space:]]*:' |
+        awk '
+        function unescape(s) {
+            gsub(/\\"/, "\"", s)
+            gsub(/\\\\/, "\\", s)
+            return s
+        }
+        /"name"[[:space:]]*:/ {
+            if (name != "") print unescape(name) "\t" unescape(app_id) "\t" unescape(summary)
+            name=app_id=summary=""
+            if (match($0, /"name"[[:space:]]*:[[:space:]]*"([^"]*)"/, m)) name=m[1]
+            if (match($0, /"app_id"[[:space:]]*:[[:space:]]*"([^"]*)"/, m)) app_id=m[1]
+            if (app_id == "" && match($0, /"id"[[:space:]]*:[[:space:]]*"([^"]*)"/, m)) app_id=m[1]
+            if (match($0, /"summary"[[:space:]]*:[[:space:]]*"([^"]*)"/, m)) summary=m[1]
+        }
+        END { if (name != "") print unescape(name) "\t" unescape(app_id) "\t" unescape(summary) }
+        '
+    )
+
+    if (( count == 0 )); then
         echo 'No applications found.'
-        return 0
+    else
+        echo
+        echo "Found $count application(s)."
     fi
-
-    jq -r '
-      (.hits // .results // []) | to_entries[] |
-      "\(.key + 1). \(.value.name // "Unknown")\n   ID: \(.value.app_id // .value.id // "unknown")\n   \(.value.summary // "No description available.")\n"
-    ' <<<"$results"
-
-    echo "Found $count application(s)."
 }
 
 info_app() {
@@ -148,7 +170,7 @@ info_app() {
         echo 'flatpak: application ID required' >&2
         return 1
     fi
-    curl -fsSL "$FLATHUB_API/apps/$1" | jq .
+    curl -fsSL "$FLATHUB_API/apps/$1"
 }
 
 install_app() {
@@ -159,8 +181,9 @@ install_app() {
     mkdir -p "$INSTALL_DIR"
     local app="$1" output="$INSTALL_DIR/${1//\//_}.flatpak"
     echo "==> Looking up $app on real Flathub"
-    local url
-    url="$(curl -fsSL "$FLATHUB_API/apps/$app" | jq -r '.bundle_url // empty')"
+    local json url
+    json="$(curl -fsSL "$FLATHUB_API/apps/$app")"
+    url="$(printf '%s' "$json" | sed -n 's/.*"bundle_url"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n1)"
     if [[ -z "$url" ]]; then
         echo 'flatpak: no downloadable Flatpak bundle was found in Flathub metadata.' >&2
         return 1
