@@ -1,0 +1,13 @@
+pkgname=sys-u-manager
+pkgver=1.0
+pkgrel=1
+pkgdesc="System update manager frontend for Pacman on MSYS2"
+arch=('any')
+license=('MIT')
+depends=('bash' 'pacman')
+source=()
+sha256sums=()
+
+package() {
+    install -Dm755 "$startdir/sys-u-manager" "$pkgdir/usr/bin/sys-u-manager"
+}
