@@ -1,0 +1,107 @@
+#!/usr/bin/env bash
+
+VERSION='1.0'
+
+usage() {
+    cat <<'EOF'
+Usage: portablepkg <command> [options] [packages/files...]
+
+Portable package manager frontend for Pacman.
+
+Commands:
+  install, i FILE...    Install local .pkg.tar.* packages
+  remove, r PACKAGE...  Remove installed packages
+  upgrade, up           Upgrade installed packages
+  update, sync          Refresh package databases
+  list, ls              List installed packages
+  search, s QUERY       Search available packages
+  info, show PACKAGE    Show package information
+  verify FILE...        Verify local package files with Pacman
+  clean                 Clean Pacman's package cache
+  help                  Show this help
+  version               Show version
+
+Examples:
+  portablepkg install ./hello-custom-1.0-1-any.pkg.tar.zst
+  portablepkg install /d/packages/*.pkg.tar.zst
+  portablepkg remove hello-custom
+  portablepkg search terminal
+  portablepkg info bash
+  portablepkg verify ./my-package.pkg.tar.zst
+EOF
+}
+
+need_args() {
+    if (( $# == 0 )); then
+        echo "portablepkg: no arguments specified" >&2
+        return 1
+    fi
+}
+
+install_local() {
+    need_args "$@" || return
+    local file
+    for file in "$@"; do
+        if [[ ! -f "$file" ]]; then
+            echo "portablepkg: file not found: $file" >&2
+            return 1
+        fi
+    done
+    pacman -U --needed "$@"
+}
+
+remove_packages() {
+    need_args "$@" || return
+    pacman -R "$@"
+}
+
+verify_packages() {
+    need_args "$@" || return
+    local file
+    local status=0
+    for file in "$@"; do
+        if [[ ! -f "$file" ]]; then
+            echo "missing:  $file"
+            status=1
+            continue
+        fi
+        if pacman -Qp "$file" >/dev/null 2>&1; then
+            printf 'valid:    %s\n' "$file"
+        else
+            printf 'invalid:  %s\n' "$file"
+            status=1
+        fi
+    done
+    return "$status"
+}
+
+case "${1:-help}" in
+    install|i|add)
+        shift; install_local "$@" ;;
+    remove|r|uninstall)
+        shift; remove_packages "$@" ;;
+    upgrade|up)
+        pacman -Su ;;
+    update|sync|refresh)
+        pacman -Sy ;;
+    list|ls)
+        pacman -Q ;;
+    search|s)
+        shift; need_args "$@" && pacman -Ss "$@" ;;
+    info|show)
+        shift; need_args "$@" && pacman -Si "$@" ;;
+    verify|check)
+        shift; verify_packages "$@" ;;
+    clean)
+        pacman -Sc ;;
+    version|--version|-v)
+        printf 'portablepkg version %s\n' "$VERSION" ;;
+    help|--help|-h)
+        usage ;;
+    *)
+        echo "portablepkg: unknown command: $1" >&2
+        echo
+        usage
+        exit 1
+        ;;
+esac
