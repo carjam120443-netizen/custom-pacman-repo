@@ -1,5 +1,5 @@
 pkgname=flatpak
-pkgver=1.4
+pkgver=1.5
 pkgrel=1
 pkgdesc="Flatpak-style application manager with configurable remotes and real Flathub integration for MSYS2"
 arch=('any')
@@ -15,7 +15,7 @@ package() {
 #!/usr/bin/env bash
 set -e
 
-VERSION='1.4'
+VERSION='1.5'
 FLATHUB_API='https://flathub.org/api/v2'
 FLATHUB_REPO='https://dl.flathub.org/repo/flathub.flatpakrepo'
 CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/flatpak"
@@ -36,8 +36,8 @@ Commands:
   remotes                  Alias for remote-list
   search QUERY             Search real Flathub applications
   info APP                 Show real Flathub application information
-  install APP              Download a real Flatpak bundle from Flathub
-  uninstall APP            Remove a locally downloaded Flatpak
+  install APP              Download a Flathub .flatpakref
+  uninstall APP            Remove a locally downloaded Flatpak reference
   list                     List locally downloaded Flatpaks
   update                   Check configured remote metadata
   run APP                  Show how to run the downloaded Flatpak
@@ -126,8 +126,6 @@ search_apps() {
         -H 'Content-Type: application/json' \
         --data "$payload")"
 
-    # The Flathub API returns JSON.  Extract the common fields without jq so
-    # this package stays usable in a minimal MSYS2 installation.
     local count=0 name app_id summary
     while IFS=$'\t' read -r name app_id summary; do
         [[ -n "$name" ]] || continue
@@ -170,7 +168,8 @@ info_app() {
         echo 'flatpak: application ID required' >&2
         return 1
     fi
-    curl -fsSL "$FLATHUB_API/apps/$1"
+    echo "==> Looking up $1 on real Flathub"
+    curl -fsSL "$FLATHUB_API/appstream/$1"
 }
 
 install_app() {
@@ -179,18 +178,18 @@ install_app() {
         return 1
     fi
     mkdir -p "$INSTALL_DIR"
-    local app="$1" output="$INSTALL_DIR/${1//\//_}.flatpak"
+    local app="$1" output="$INSTALL_DIR/${1//\//_}.flatpakref"
+    local ref_url="https://flathub.org/repo/appstream/${app}.flatpakref"
     echo "==> Looking up $app on real Flathub"
-    local json url
-    json="$(curl -fsSL "$FLATHUB_API/apps/$app")"
-    url="$(printf '%s' "$json" | sed -n 's/.*"bundle_url"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n1)"
-    if [[ -z "$url" ]]; then
-        echo 'flatpak: no downloadable Flatpak bundle was found in Flathub metadata.' >&2
+    if ! curl -fsSI --max-time 20 "$ref_url" >/dev/null 2>&1; then
+        echo "flatpak: Flathub reference not found: $app" >&2
+        echo "Try: flatpak search $app" >&2
         return 1
     fi
-    echo "==> Downloading: $url"
-    curl -fL --retry 3 --show-error "$url" -o "$output"
+    echo "==> Downloading: $ref_url"
+    curl -fL --retry 3 --show-error "$ref_url" -o "$output"
     echo "Downloaded: $output"
+    echo "Note: this MSYS2 frontend downloads the official .flatpakref; a native Flatpak runtime is still required to install/run the application."
 }
 
 uninstall_app() {
@@ -198,7 +197,7 @@ uninstall_app() {
         echo 'flatpak: application ID required' >&2
         return 1
     fi
-    local file="$INSTALL_DIR/${1//\//_}.flatpak"
+    local file="$INSTALL_DIR/${1//\//_}.flatpakref"
     if [[ -f "$file" ]]; then
         rm -f "$file"
         echo "Removed: $file"
@@ -210,7 +209,7 @@ uninstall_app() {
 
 list_apps() {
     if [[ -d "$INSTALL_DIR" ]]; then
-        find "$INSTALL_DIR" -maxdepth 1 -type f -name '*.flatpak' -printf '%f\n' 2>/dev/null || true
+        find "$INSTALL_DIR" -maxdepth 1 -type f -name '*.flatpakref' -printf '%f\n' 2>/dev/null || true
     fi
 }
 
@@ -244,8 +243,8 @@ case "${1:-help}" in
     run)
         shift
         [[ $# -gt 0 ]] || { echo 'flatpak: application ID required' >&2; exit 1; }
-        echo "Downloaded bundle for $1 would normally be launched by the native Flatpak runtime."
-        echo 'This MSYS2 frontend intentionally does not execute .flatpak bundles.' ;;
+        echo "Downloaded reference for $1 would normally be installed and launched by the native Flatpak runtime."
+        echo 'This MSYS2 frontend intentionally does not execute Flatpak applications.' ;;
     version|--version|-v) printf 'flatpak (remote frontend) version %s\n' "$VERSION" ;;
     help|--help|-h) usage ;;
     *) echo "flatpak: unknown command: $1" >&2; usage; exit 1 ;;
