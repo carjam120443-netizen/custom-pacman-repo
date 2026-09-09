@@ -1,0 +1,160 @@
+pkgname=flatpak
+pkgver=1.0
+pkgrel=1
+pkgdesc="Flatpak-style application manager with real Flathub integration for MSYS2"
+arch=('any')
+license=('MIT')
+depends=('bash' 'curl')
+source=()
+sha256sums=()
+
+package() {
+    install -d "$pkgdir/usr/bin"
+
+    cat > "$pkgdir/usr/bin/flatpak" <<'EOF'
+#!/usr/bin/env bash
+set -e
+
+VERSION='1.0'
+FLATHUB_API='https://flathub.org/api/v2'
+FLATHUB_REPO='https://dl.flathub.org/repo/flathub.flatpakrepo'
+CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/flatpak"
+INSTALL_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/flatpak-apps"
+
+usage() {
+    cat <<'HELP'
+Usage: flatpak <command> [arguments...]
+
+Flatpak/Flathub frontend for MSYS2.
+
+Commands:
+  remote-add flathub       Add the real Flathub remote
+  remotes                  List configured remotes
+  search QUERY             Search real Flathub applications
+  info APP                 Show real Flathub application information
+  install APP              Download a real Flatpak bundle from Flathub
+  uninstall APP            Remove a locally downloaded Flatpak
+  list                     List locally downloaded Flatpaks
+  update                   Check configured Flathub metadata
+  run APP                  Show how to run the downloaded Flatpak
+  version                  Show version
+  help                     Show this help
+
+NOTE: This package provides real Flathub search/metadata/download access.
+It does not pretend that a .flatpak bundle is an MSYS2 executable and does
+not install Flatpak runtimes into MSYS2.
+HELP
+}
+
+remote_add() {
+    mkdir -p "$CONFIG_DIR"
+    printf '%s\n' "$FLATHUB_REPO" > "$CONFIG_DIR/flathub"
+    echo "Flathub remote added: $FLATHUB_REPO"
+}
+
+remotes() {
+    if [[ -f "$CONFIG_DIR/flathub" ]]; then
+        echo "flathub  $(cat "$CONFIG_DIR/flathub")"
+    else
+        echo 'No Flatpak remotes configured.'
+    fi
+}
+
+search_apps() {
+    if (( $# == 0 )); then
+        echo 'flatpak: search query required' >&2
+        return 1
+    fi
+    curl -fsSL --get "$FLATHUB_API/search" --data-urlencode "query=$*" \
+        | sed -n '1,240p'
+}
+
+info_app() {
+    if (( $# == 0 )); then
+        echo 'flatpak: application ID required' >&2
+        return 1
+    fi
+    curl -fsSL "$FLATHUB_API/apps/$1" | sed -n '1,260p'
+}
+
+install_app() {
+    if (( $# == 0 )); then
+        echo 'flatpak: application ID required' >&2
+        return 1
+    fi
+    mkdir -p "$INSTALL_DIR"
+    local app="$1"
+    local safe="${app//\//_}"
+    local output="$INSTALL_DIR/${safe}.flatpak"
+    echo "==> Looking up $app on real Flathub"
+    local url
+    url="$(curl -fsSL "$FLATHUB_API/apps/$app" | sed -n 's/.*"bundle_url":"\([^"]*\.flatpak\)".*/\1/p' | head -n1)"
+    if [[ -z "$url" ]]; then
+        echo 'flatpak: no downloadable Flatpak bundle was found in Flathub metadata.' >&2
+        echo 'Use: flatpak info APP' >&2
+        return 1
+    fi
+    echo "==> Downloading: $url"
+    curl -fL --retry 3 --show-error "$url" -o "$output"
+    echo "Downloaded: $output"
+}
+
+uninstall_app() {
+    if (( $# == 0 )); then
+        echo 'flatpak: application ID required' >&2
+        return 1
+    fi
+    local safe="${1//\//_}"
+    local file="$INSTALL_DIR/${safe}.flatpak"
+    if [[ -f "$file" ]]; then
+        rm -f "$file"
+        echo "Removed: $file"
+    else
+        echo "flatpak: not installed locally: $1" >&2
+        return 1
+    fi
+}
+
+list_apps() {
+    if [[ -d "$INSTALL_DIR" ]]; then
+        find "$INSTALL_DIR" -maxdepth 1 -type f -name '*.flatpak' -printf '%f\n' 2>/dev/null || true
+    fi
+}
+
+case "${1:-help}" in
+    remote-add)
+        shift; [[ "${1:-}" == flathub ]] || { echo 'Usage: flatpak remote-add flathub'; exit 1; }; remote_add ;;
+    remotes)
+        remotes ;;
+    search)
+        shift; search_apps "$@" ;;
+    info)
+        shift; info_app "$@" ;;
+    install)
+        shift; install_app "$@" ;;
+    uninstall|remove)
+        shift; uninstall_app "$@" ;;
+    list)
+        list_apps ;;
+    update)
+        remote_add >/dev/null
+        echo 'Flathub remote metadata endpoint is available.'
+        curl -fsSL "$FLATHUB_REPO" | sed -n '1,40p' ;;
+    run)
+        shift
+        if (( $# == 0 )); then echo 'flatpak: application ID required' >&2; exit 1; fi
+        echo "Downloaded bundle for $1 would normally be launched by the native Flatpak runtime."
+        echo 'This MSYS2 frontend intentionally does not execute .flatpak bundles.' ;;
+    version|--version|-v)
+        printf 'flatpak (Flathub frontend) version %s\n' "$VERSION" ;;
+    help|--help|-h)
+        usage ;;
+    *)
+        echo "flatpak: unknown command: $1" >&2
+        usage
+        exit 1 ;;
+esac
+EOF
+
+    chmod 755 "$pkgdir/usr/bin/flatpak"
+}
