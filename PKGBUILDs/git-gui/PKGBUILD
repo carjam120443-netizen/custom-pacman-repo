@@ -1,0 +1,13 @@
+pkgname=git-gui
+pkgver=1.0
+pkgrel=1
+pkgdesc="Lightweight terminal-based graphical-style frontend for Git"
+arch=('any')
+license=('MIT')
+depends=('bash' 'git')
+source=()
+sha256sums=()
+
+package() {
+    install -Dm755 "$startdir/git-gui" "$pkgdir/usr/bin/git-gui"
+}
